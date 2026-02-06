@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 	"time"
-	"video-processor/in"
-	"video-processor/logic"
-	"video-processor/out"
+	"BeeSmartVideo/in"
+	"BeeSmartVideo/logic"
+	"BeeSmartVideo/out"
 )
 
 const (
