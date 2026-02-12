@@ -5,11 +5,6 @@ import (
 	"math/rand"
 )
 
-// Point represents a 2D point (pixel coordinate)
-type Point struct {
-	X, Y int
-}
-
 // ApplyKMeans applies k-means clustering to white pixels in the binary frame
 // and colors each cluster with a random color
 func (p *Processor) ApplyKMeans(binaryFrame []byte, k int) []byte {
@@ -31,11 +26,7 @@ func (p *Processor) ApplyKMeans(binaryFrame []byte, k int) []byte {
 	// Generate random colors for each cluster
 	clusterColors := make([][3]uint8, k)
 	for i := 0; i < k; i++ {
-		clusterColors[i] = [3]uint8{
-			uint8(rand.Intn(256)),
-			uint8(rand.Intn(256)),
-			uint8(rand.Intn(256)),
-		}
+		clusterColors[i] = p.GetVibrantColor(i)
 	}
 
 	// Color each white pixel based on its cluster
