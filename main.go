@@ -26,7 +26,10 @@ func printMenu() {
 	fmt.Println("  1: Static Threshold (128)")
 	fmt.Println("  2: Adaptive Peak Midpoint (Sampling 5%)")
 	fmt.Println("  3: Otsu's Global Threshold")
-	fmt.Println("\nUsage: go run main.go [method_number] [threshold_mode]")
+	fmt.Println("\nUsage:")
+	fmt.Println("  go run main.go [method_number] [threshold_mode]")
+	fmt.Println("  ./program [method_number] [threshold_mode] (Linux)")
+	fmt.Println("  program.exe [method_number] [threshold_mode] (Windows)")
 }
 
 func main() {

@@ -34,8 +34,21 @@ To handle different lighting conditions, BeeSmartVideo supports multiple binariz
 
 ## Usage
 
-Run the tool using `go run main.go` followed by the method number and threshold mode.
+You can run the tool using `go run main.go` or by using the provided executable.
 
+### Windows Users
+Run the `program.exe` file followed by the method number and threshold mode:
+```cmd
+program.exe [method_number] [threshold_mode]
+```
+
+### Linux Users
+Run the `program` binary:
+```bash
+./program [method_number] [threshold_mode]
+```
+
+### From Source
 ```bash
 go run main.go [method_number] [threshold_mode]
 ```
