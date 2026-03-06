@@ -19,7 +19,7 @@ const (
 
 func printMenu() {
 	fmt.Println("\n=== BeeSmartVideo Usage ===")
-	fmt.Println("Usage: go run main.go [method] [mode] [cam] [tracking]")
+	fmt.Println("Usage: go run main.go [method] [mode] [cam] [tracking] [show_ids]")
 
 	fmt.Println("\n[1] Segmentation Methods (Counting):")
 	fmt.Println("  --- Category: Initial Methods ---")
@@ -58,9 +58,12 @@ func printMenu() {
 	fmt.Println("\n[4] Camera Index:")
 	fmt.Println("  0: /dev/video0 (Internal)")
 	fmt.Println("  2: /dev/video2 (External)")
+	fmt.Println("\n[5] ID Visualization:")
+	fmt.Println("  1: Enabled (Default)")
+	fmt.Println("  0: Disabled")
 
 	fmt.Println("\nExample:")
-	fmt.Println("  go run main.go 14 4 0 3  (Pipeline + Movement + Kalman on Cam 0)")
+	fmt.Println("  go run main.go 14 4 0 3 1  (Pipeline + Movement + Kalman on Cam 0 + IDs)")
 }
 
 func main() {
@@ -98,9 +101,17 @@ func main() {
 		}
 	}
 
+	showIDs := true
+	if len(os.Args) >= 6 {
+		si, err := strconv.Atoi(os.Args[5])
+		if err == nil {
+			showIDs = si != 0
+		}
+	}
+
 	fmt.Println("=== Video Processing Started ===")
-	fmt.Printf("Selected Method: %d | Threshold: %d | Tracker: %d | Camera: %s\n",
-		method, thresholdMode, trackingMethod, device)
+	fmt.Printf("Selected Method: %d | Threshold: %d | Tracker: %d | Camera: %s | IDs: %v\n",
+		method, thresholdMode, trackingMethod, device, showIDs)
 	fmt.Println("Press Ctrl+C to exit")
 
 	// Initialize input stream from webcam
@@ -117,6 +128,7 @@ func main() {
 	defer output.Close()
 
 	processor := logic.NewProcessor(width, height, bytesPP, bgDelta)
+	processor.ShowIDs = showIDs
 
 	frameCount := 0
 	fpsStart := time.Now()

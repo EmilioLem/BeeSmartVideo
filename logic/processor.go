@@ -51,6 +51,8 @@ type Processor struct {
 	// Counting state
 	CountUp   int
 	CountDown int
+	// Visualization toggle
+	ShowIDs bool
 }
 
 // NewProcessor creates a new processor instance
@@ -61,6 +63,7 @@ func NewProcessor(width, height, bytesPP int, bgDelta float64) *Processor {
 		bytesPP:     bytesPP,
 		bgDelta:     bgDelta,
 		NextTrackID: 1,
+		ShowIDs:     true, // Default to true
 	}
 }
 
@@ -354,11 +357,13 @@ func (p *Processor) OverlayTracks(buf []byte) {
 		}
 	}
 
-	for _, t := range p.Tracks {
-		// Centered above the bee, scale 2 usually works well for 5x7
-		scale := 2
-		// Offset slightly to be above the centroid
-		p.DrawNumber(buf, t.ID, t.Centroid.X-10, t.Centroid.Y-25, scale, [3]byte{255, 255, 255})
+	if p.ShowIDs {
+		for _, t := range p.Tracks {
+			// Centered above the bee, scale 2 usually works well for 5x7
+			scale := 2
+			// Offset slightly to be above the centroid
+			p.DrawNumber(buf, t.ID, t.Centroid.X-10, t.Centroid.Y-25, scale, [3]byte{255, 255, 255})
+		}
 	}
 }
 
