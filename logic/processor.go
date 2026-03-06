@@ -13,14 +13,16 @@ type Processor struct {
 	originalFrame       []byte
 	lastWhitePixelCount int
 	backgroundModel     []float64
+	bgDelta             float64
 }
 
 // NewProcessor creates a new processor instance
-func NewProcessor(width, height, bytesPP int) *Processor {
+func NewProcessor(width, height, bytesPP int, bgDelta float64) *Processor {
 	return &Processor{
 		width:   width,
 		height:  height,
 		bytesPP: bytesPP,
+		bgDelta: bgDelta,
 	}
 }
 

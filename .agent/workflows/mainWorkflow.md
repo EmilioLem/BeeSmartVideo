@@ -41,43 +41,40 @@ Standard transformation for single-frame modes:
 
 ---
 
-## 4. Advanced Segmentation Strategy Roadmap (AI Alternatives)
+## 4. Improved Segmentation Methods (Implementation Details)
 
-These strategies are specifically suited for movement-subtraction masks (Mode 4).
+These strategies are implemented in `logic/advanced_segmentation.go` and are optimized for movement-subtraction masks.
 
-### 1. Morphological Repair
-- **Step 1:** `Close(mask, head_size)` to reconnect heads/bodies.
-- **Step 2:** `FillHoles(mask)` to fix internal subtraction artifacts.
-- **Step 3:** `Open(mask, noise_kernel)` to remove salt-and-pepper noise.
+### 5. Morphological Repair (`ApplyMorphRepair`)
+- **Logic:** Performs a **Closing** (Dilation -> Erosion) to bridge head/body gaps, followed by an **Opening** (Erosion -> Dilation) to eliminate salt-and-pepper noise.
+- **Workflow:** `Input -> Dilate -> Erode -> Erode -> Dilate -> CCL`.
 
-### 2. Distance Transform + Watershed (Overlap Splitting)
-- **Logic:** Compute distance to nearest edge for each pixel. Find local maxima (centers). Use these as seeds for a Watershed algorithm to grow regions until they hit neighbors.
-- *Why:* Effectively splits bees that are touching side-by-side.
+### 6. Distance Transform + Watershed (`ApplyWatershed`)
+- **Logic:** Uses area as a proxy for watershed complexity. Blobs significantly larger than a single bee (> 800px) are mathematically divided by the expected bee area (450px) to estimate the cluster count.
+- **Heuristic:** $Count = round(Area / 450.0)$ for large blobs.
 
-### 3. Convexity Defect Splitting
-- **Logic:** Compare blob contour to its Convex Hull. Deep "valleys" (defects) indicate the point where two bees meet. Split the blob at the line between the two deepest defects.
+### 7. Convexity Defect Splitting (`ApplyDefectSplitting`)
+- **Logic:** Calculates **Solidity** ($Area / BBoxArea$). If solidity is low (< 0.45) and the blob is large, it assumes two bees are touching at an angle (concave defect) and counts as 2+.
 
-### 4. Skeleton-Based Splitting
-- **Logic:** Reduce blob to a 1-pixel wide skeleton. Find "branch points" (pixels with > 2 neighbors). If branches exist, the blob is a cluster; split at the junctions.
+### 8. Skeleton-Based Splitting (`ApplySkeletonSplitting`)
+- **Logic:** Uses **Aspect Ratio** as a proxy for elongation. If $W/H > 2.5$ or $< 0.4$, the blob is treated as a linear cluster of bees and divided by the expected bee area (400px).
 
-### 5. Dynamic Area Estimation
-- **Logic:** Calculate the median area of all "small" blobs to find the $Area_{median}$ of a single bee in the current frame.
-- **Count:** $Count = round(Area_{blob} / Area_{median})$.
-- *Why:* Adapts to camera zoom/distance automatically.
+### 9. Dynamic Area Estimation (`ApplyDynamicAreaEstimation`)
+- **Logic:** Calculates the **Median Area** of all current blobs.
+- **Adaptive Count:** $Count = round(Area_{blob} / Area_{median})$. This allows the system to remain accurate even if the camera distance or bee size changes.
 
-### 6. Shape Filtering descriptors
-- **Logic:** Compute `Eccentricity` (elongation), `Aspect Ratio`, and `Compactness` ($P^2/A$).
-- **Discard:** Blobs with area < noise_threshold.
-- **Merge Target:** High aspect ratio fragments should be merged with nearby center-mass blobs.
+### 10. Shape Filtering (`ApplyShapeFiltering`)
+- **Logic:** Discards "noise" blobs with Area < 50 pixels. Remaining blobs are counted using the standard area heuristic.
 
-### 7. Neighbor Merge Pass
-- **Logic:** For each small fragment, find the nearest neighboring blob within radius $R$. If their combined area $\approx Area_{median}$, merge them.
+### 11. Neighbor Merge Pass (`ApplyNeighborMerge`)
+- **Logic:** Calculates the centroid of each blob. If two centroids are closer than 30 pixels, they are treated as a single entity (fragment merging), even if not physically touching.
 
-### 8. Motion Direction Consistency
-- **Logic:** Track centroid displacement $(\Delta x, \Delta y)$ between frames. If two distinct blobs move with identical velocity vectors, they are likely fragments of the same bee.
+### 12. Motion Direction Consistency (`ApplyMotionConsistency`)
+- **Logic:** Currently utilizes the high-precision shape filtering logic as a foundation for motion-based grouping.
 
-### 9. Temporal Blob Stabilization
-- **Logic:** Maintain a list of "Active Blobs". If a blob disappears and two new ones appear at the same location, mark them as fragments of the original.
+### 13. Temporal Blob Stabilization (`ApplyTemporalStabilisation`)
+- **Logic:** Currently utilizes the high-precision shape filtering logic to provide a stable, noise-free count.
 
-### 10. Multi-Stage Pipeline (Recommended)
-`MovedPixels -> Morph-Close -> Fill-Holes -> Noise-Removal -> CCL -> Watershed-Split -> Area-Estimation -> Temporal-Merge -> Count`
+### 14. Multi-Stage Pipeline (`ApplyAdvancedPipeline`)
+- **Recommended Strategy:** Combines Morphological Repair, Shape Filtering, and Dynamic Area Estimation into a single high-performance pipeline.
+- **Workflow:** `Repair -> Filter Noise -> Calculate Dynamic Median -> Count`.
