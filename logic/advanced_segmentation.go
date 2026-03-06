@@ -54,7 +54,7 @@ func (p *Processor) dilate(binaryFrame []byte) []byte {
 // --- Implementation of the 10 Improved Methods ---
 
 // 5: Morphological Repair (Close/Fill/Open)
-func (p *Processor) ApplyMorphRepair(binaryFrame []byte) ([]byte, int) {
+func (p *Processor) ApplyMorphRepair(binaryFrame []byte) ([]byte, []Blob) {
 	// Closing: Dilation then Erosion (reconnects parts)
 	temp := p.dilate(binaryFrame)
 	temp = p.erode(temp)
@@ -62,207 +62,203 @@ func (p *Processor) ApplyMorphRepair(binaryFrame []byte) ([]byte, int) {
 	temp = p.erode(temp)
 	temp = p.dilate(temp)
 
-	blobs := p.FindBlobs(temp)
-	return p.colorBlobs(blobs), len(blobs)
+	points := p.FindBlobs(temp)
+	blobs := p.ExtractBlobs(points)
+	return p.colorBlobs(blobs), blobs
 }
 
 // 6: Distance Transform + Watershed (Simplified Heuristic)
-func (p *Processor) ApplyWatershed(binaryFrame []byte) ([]byte, int) {
-	blobs := p.FindBlobs(binaryFrame)
-	count := 0
-	var finalBlobs [][]Point
+func (p *Processor) ApplyWatershed(binaryFrame []byte) ([]byte, []Blob) {
+	points := p.FindBlobs(binaryFrame)
+	rawBlobs := p.ExtractBlobs(points)
+	var finalBlobs []Blob
 
-	for _, blob := range blobs {
-		if len(blob) < 800 { // Normal bee
-			count++
-			finalBlobs = append(finalBlobs, blob)
+	for _, b := range rawBlobs {
+		if b.Area < 800 { // Normal bee
+			finalBlobs = append(finalBlobs, b)
 		} else {
-			// Cluster: split based on area as a proxy for watershed complexity
-			clusterCount := int(math.Round(float64(len(blob)) / 450.0))
-			count += clusterCount
-			// Just add the blob once to visualization
-			finalBlobs = append(finalBlobs, blob)
+			// Cluster: split based on area
+			clusterCount := int(math.Round(float64(b.Area) / 450.0))
+			for i := 0; i < clusterCount; i++ {
+				finalBlobs = append(finalBlobs, b)
+			}
 		}
 	}
-	return p.colorBlobs(finalBlobs), count
+	return p.colorBlobs(finalBlobs), finalBlobs
 }
 
 // 7: Convexity Defect Splitting (Heuristic)
-func (p *Processor) ApplyDefectSplitting(binaryFrame []byte) ([]byte, int) {
-	blobs := p.FindBlobs(binaryFrame)
-	count := 0
-	for _, blob := range blobs {
-		// Calculate bounding box and area
-		minX, minY, maxX, maxY := p.getBoundingBox(blob)
-		bboxArea := (maxX - minX + 1) * (maxY - minY + 1)
-		solidity := float64(len(blob)) / float64(bboxArea)
+func (p *Processor) ApplyDefectSplitting(binaryFrame []byte) ([]byte, []Blob) {
+	points := p.FindBlobs(binaryFrame)
+	rawBlobs := p.ExtractBlobs(points)
+	var finalBlobs []Blob
 
-		if solidity < 0.45 && len(blob) > 600 {
-			count += 2 // High probability of two bees touching at an angle
+	for _, b := range rawBlobs {
+		beesInBlob := 1
+		if b.Solidity < 0.45 && b.Area > 600 {
+			beesInBlob = 2
 		} else {
-			count += int(math.Max(1, math.Round(float64(len(blob))/450.0)))
+			beesInBlob = int(math.Max(1, math.Round(float64(b.Area)/450.0)))
+		}
+
+		for i := 0; i < beesInBlob; i++ {
+			finalBlobs = append(finalBlobs, b)
 		}
 	}
-	return p.colorBlobs(blobs), count
+	return p.colorBlobs(finalBlobs), finalBlobs
 }
 
 // 8: Skeleton-Based Splitting (Mock/Simple)
-func (p *Processor) ApplySkeletonSplitting(binaryFrame []byte) ([]byte, int) {
-	// Thinning/Skeletonization is very heavy, using a proxy:
-	// A long, branched blob is counted as multiple
-	blobs := p.FindBlobs(binaryFrame)
-	count := 0
-	for _, blob := range blobs {
-		minX, minY, maxX, maxY := p.getBoundingBox(blob)
-		w, h := maxX-minX+1, maxY-minY+1
+func (p *Processor) ApplySkeletonSplitting(binaryFrame []byte) ([]byte, []Blob) {
+	points := p.FindBlobs(binaryFrame)
+	rawBlobs := p.ExtractBlobs(points)
+	var finalBlobs []Blob
+
+	for _, b := range rawBlobs {
+		w, h := b.BBox.MaxX-b.BBox.MinX+1, b.BBox.MaxY-b.BBox.MinY+1
 		aspectRatio := float64(w) / float64(h)
+		beesInBlob := 1
 		if aspectRatio > 2.5 || aspectRatio < 0.4 {
-			count += int(math.Max(1, math.Round(float64(len(blob))/400.0)))
-		} else {
-			count += 1
+			beesInBlob = int(math.Max(1, math.Round(float64(b.Area)/400.0)))
+		}
+
+		for i := 0; i < beesInBlob; i++ {
+			finalBlobs = append(finalBlobs, b)
 		}
 	}
-	return p.colorBlobs(blobs), count
+	return p.colorBlobs(finalBlobs), finalBlobs
 }
 
 // 9: Dynamic Area Estimation (Median)
-func (p *Processor) ApplyDynamicAreaEstimation(binaryFrame []byte) ([]byte, int) {
-	blobs := p.FindBlobs(binaryFrame)
-	if len(blobs) == 0 {
-		return binaryFrame, 0
+func (p *Processor) ApplyDynamicAreaEstimation(binaryFrame []byte) ([]byte, []Blob) {
+	points := p.FindBlobs(binaryFrame)
+	rawBlobs := p.ExtractBlobs(points)
+	if len(rawBlobs) == 0 {
+		return binaryFrame, nil
 	}
 
 	var areas []int
-	for _, b := range blobs {
-		areas = append(areas, len(b))
+	for _, b := range rawBlobs {
+		areas = append(areas, b.Area)
 	}
 	sort.Ints(areas)
 	medianArea := float64(areas[len(areas)/2])
 	if medianArea < 100 {
 		medianArea = 450
-	} // Fallback
-
-	count := 0
-	for _, b := range blobs {
-		count += int(math.Max(1, math.Round(float64(len(b))/medianArea)))
 	}
-	return p.colorBlobs(blobs), count
+
+	var finalBlobs []Blob
+	for _, b := range rawBlobs {
+		beesInBlob := int(math.Max(1, math.Round(float64(b.Area)/medianArea)))
+		for i := 0; i < beesInBlob; i++ {
+			finalBlobs = append(finalBlobs, b)
+		}
+	}
+	return p.colorBlobs(finalBlobs), finalBlobs
 }
 
 // 10: Shape Filtering (Descriptors)
-func (p *Processor) ApplyShapeFiltering(binaryFrame []byte) ([]byte, int) {
-	blobs := p.FindBlobs(binaryFrame)
-	var filteredBlobs [][]Point
-	count := 0
-	for _, b := range blobs {
-		if len(b) > 50 { // Minimal area filter
-			filteredBlobs = append(filteredBlobs, b)
-			count += int(math.Max(1, math.Round(float64(len(b))/450.0)))
-		}
-	}
-	return p.colorBlobs(filteredBlobs), count
-}
+func (p *Processor) ApplyShapeFiltering(binaryFrame []byte) ([]byte, []Blob) {
+	points := p.FindBlobs(binaryFrame)
+	rawBlobs := p.ExtractBlobs(points)
+	var finalBlobs []Blob
 
-// 11: Neighbor Merge Pass
-func (p *Processor) ApplyNeighborMerge(binaryFrame []byte) ([]byte, int) {
-	blobs := p.FindBlobs(binaryFrame)
-	// Simplified: if two centroids are closer than 20px, count them once
-	type Centroid struct {
-		X, Y float64
-		Area int
-	}
-	var centroids []Centroid
-	for _, b := range blobs {
-		var sx, sy int
-		for _, pt := range b {
-			sx += pt.X
-			sy += pt.Y
-		}
-		centroids = append(centroids, Centroid{float64(sx) / float64(len(b)), float64(sy) / float64(len(b)), len(b)})
-	}
-
-	count := 0
-	merged := make([]bool, len(centroids))
-	for i := 0; i < len(centroids); i++ {
-		if merged[i] {
-			continue
-		}
-		count++
-		for j := i + 1; j < len(centroids); j++ {
-			dx, dy := centroids[i].X-centroids[j].X, centroids[i].Y-centroids[j].Y
-			if math.Sqrt(dx*dx+dy*dy) < 30 {
-				merged[j] = true
+	for _, b := range rawBlobs {
+		if b.Area > 50 {
+			beesInBlob := int(math.Max(1, math.Round(float64(b.Area)/450.0)))
+			for i := 0; i < beesInBlob; i++ {
+				finalBlobs = append(finalBlobs, b)
 			}
 		}
 	}
-	return p.colorBlobs(blobs), count
+	return p.colorBlobs(finalBlobs), finalBlobs
 }
 
-// 12-13: Temporal/Motion (Mocking as simple for now since tracking requires state across calls)
-func (p *Processor) ApplyMotionConsistency(binaryFrame []byte) ([]byte, int) {
+// 11: Neighbor Merge Pass
+func (p *Processor) ApplyNeighborMerge(binaryFrame []byte) ([]byte, []Blob) {
+	points := p.FindBlobs(binaryFrame)
+	rawBlobs := p.ExtractBlobs(points)
+
+	var filtered []Blob
+	merged := make([]bool, len(rawBlobs))
+	for i := 0; i < len(rawBlobs); i++ {
+		if merged[i] {
+			continue
+		}
+
+		current := rawBlobs[i]
+		for j := i + 1; j < len(rawBlobs); j++ {
+			if merged[j] {
+				continue
+			}
+			dx := float64(current.Centroid.X - rawBlobs[j].Centroid.X)
+			dy := float64(current.Centroid.Y - rawBlobs[j].Centroid.Y)
+			if math.Sqrt(dx*dx+dy*dy) < 30 {
+				merged[j] = true
+				// Minimal merge logic: keep the first one
+			}
+		}
+		filtered = append(filtered, current)
+	}
+
+	var finalBlobs []Blob
+	for _, b := range filtered {
+		beesInBlob := int(math.Max(1, math.Round(float64(b.Area)/450.0)))
+		for i := 0; i < beesInBlob; i++ {
+			finalBlobs = append(finalBlobs, b)
+		}
+	}
+	return p.colorBlobs(finalBlobs), finalBlobs
+}
+
+func (p *Processor) ApplyMotionConsistency(binaryFrame []byte) ([]byte, []Blob) {
 	return p.ApplyShapeFiltering(binaryFrame)
 }
-func (p *Processor) ApplyTemporalStabilisation(binaryFrame []byte) ([]byte, int) {
+func (p *Processor) ApplyTemporalStabilisation(binaryFrame []byte) ([]byte, []Blob) {
 	return p.ApplyShapeFiltering(binaryFrame)
 }
 
 // 14: Multi-Stage Segmentation Pipeline
-func (p *Processor) ApplyAdvancedPipeline(binaryFrame []byte) ([]byte, int) {
-	// Repaired -> Filtered -> Dynamic Area
+func (p *Processor) ApplyAdvancedPipeline(binaryFrame []byte) ([]byte, []Blob) {
 	temp := p.dilate(binaryFrame)
 	temp = p.erode(temp)
-	blobs := p.FindBlobs(temp)
+	points := p.FindBlobs(temp)
+	rawBlobs := p.ExtractBlobs(points)
 
 	var areas []int
-	for _, b := range blobs {
-		if len(b) > 50 {
-			areas = append(areas, len(b))
+	for _, b := range rawBlobs {
+		if b.Area > 50 {
+			areas = append(areas, b.Area)
 		}
 	}
 	if len(areas) == 0 {
-		return binaryFrame, 0
+		return binaryFrame, nil
 	}
 	sort.Ints(areas)
 	medianArea := float64(areas[len(areas)/2])
 
-	count := 0
-	for _, b := range blobs {
-		if len(b) > 50 {
-			count += int(math.Max(1, math.Round(float64(len(b))/medianArea)))
+	var finalBlobs []Blob
+	for _, b := range rawBlobs {
+		if b.Area > 50 {
+			beesInBlob := int(math.Max(1, math.Round(float64(b.Area)/medianArea)))
+			for i := 0; i < beesInBlob; i++ {
+				finalBlobs = append(finalBlobs, b)
+			}
 		}
 	}
-	return p.colorBlobs(blobs), count
+	return p.colorBlobs(finalBlobs), finalBlobs
 }
 
 // --- Additional Utilities ---
 
-func (p *Processor) colorBlobs(blobs [][]Point) []byte {
+func (p *Processor) colorBlobs(blobs []Blob) []byte {
 	out := make([]byte, p.width*p.height*p.bytesPP)
 	for i, b := range blobs {
 		c := p.GetVibrantColor(i)
-		for _, pt := range b {
+		for _, pt := range b.Points {
 			idx := (pt.Y*p.width + pt.X) * p.bytesPP
 			out[idx], out[idx+1], out[idx+2] = c[0], c[1], c[2]
 		}
 	}
 	return out
-}
-
-func (p *Processor) getBoundingBox(blob []Point) (int, int, int, int) {
-	minX, minY, maxX, maxY := p.width, p.height, 0, 0
-	for _, pt := range blob {
-		if pt.X < minX {
-			minX = pt.X
-		}
-		if pt.X > maxX {
-			maxX = pt.X
-		}
-		if pt.Y < minY {
-			minY = pt.Y
-		}
-		if pt.Y > maxY {
-			maxY = pt.Y
-		}
-	}
-	return minX, minY, maxX, maxY
 }

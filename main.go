@@ -13,13 +13,13 @@ import (
 const (
 	width   = 640
 	height  = 480
-	bytesPP = 3      // RGB24
+	bytesPP = 3     // RGB24
 	bgDelta = 0.005 // Background adaptation speed (~1 min at 30fps)
 )
 
 func printMenu() {
 	fmt.Println("\n=== BeeSmartVideo Usage ===")
-	fmt.Println("Usage: go run main.go [segmentation_method] [mode] [camera_index]")
+	fmt.Println("Usage: go run main.go [method] [mode] [cam] [tracking]")
 
 	fmt.Println("\n[1] Segmentation Methods (Counting):")
 	fmt.Println("  --- Category: Initial Methods ---")
@@ -47,12 +47,20 @@ func printMenu() {
 	fmt.Println("  --- Category: Frame-over-Time ---")
 	fmt.Println("  4: Basic Movement Layer (Running Average)")
 
-	fmt.Println("\n[3] Camera Index:")
+	fmt.Println("\n[3] Persistent Tracking Methods:")
+	fmt.Println("  0: No Tracking (Raw Detection Count)")
+	fmt.Println("  1: Nearest-Centroid Tracker (Baseline)")
+	fmt.Println("  2: Hungarian Assignment (Optimal Matching)")
+	fmt.Println("  3: Kalman Filter (Prediction-Based)")
+	fmt.Println("  4: Multi-Feature Matching (Shape/Area)")
+	fmt.Println("  5: Motion-Gated Assignment (Plausibility)")
+
+	fmt.Println("\n[4] Camera Index:")
 	fmt.Println("  0: /dev/video0 (Internal)")
 	fmt.Println("  2: /dev/video2 (External)")
 
 	fmt.Println("\nExample:")
-	fmt.Println("  go run main.go 14 4 0  (Multi-Stage Pipeline + Movement Layer on Cam 0)")
+	fmt.Println("  go run main.go 14 4 0 3  (Pipeline + Movement + Kalman on Cam 0)")
 }
 
 func main() {
@@ -82,12 +90,20 @@ func main() {
 	}
 	device := fmt.Sprintf("/dev/video%s", deviceIndex)
 
+	trackingMethod := 0
+	if len(os.Args) >= 5 {
+		tr, err := strconv.Atoi(os.Args[4])
+		if err == nil && tr >= 0 && tr <= 5 {
+			trackingMethod = tr
+		}
+	}
+
 	fmt.Println("=== Video Processing Started ===")
-	fmt.Printf("Selected Method: %d | Threshold Mode: %d | Camera: %s\n", method, thresholdMode, device)
+	fmt.Printf("Selected Method: %d | Threshold: %d | Tracker: %d | Camera: %s\n",
+		method, thresholdMode, trackingMethod, device)
 	fmt.Println("Press Ctrl+C to exit")
 
 	// Initialize input stream from webcam
-	// ... (rest of main remains similar but uses ProcessWithThresholdMode)
 	input, err := in.NewLiveInput(device, width, height)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to initialize input: %v", err))
@@ -118,38 +134,46 @@ func main() {
 
 		// Step 2: Apply selected counting method
 		var processedFrame []byte
-		var count int
+		var blobs []logic.Blob
 
 		switch method {
 		case 1:
-			processedFrame = processor.ApplyKMeans(binaryFrame, 7)
-			count = 7
+			processedFrame, blobs = processor.ApplyKMeans(binaryFrame, 7)
 		case 2:
-			processedFrame, count = processor.ApplyErosion(binaryFrame)
+			processedFrame, blobs = processor.ApplyErosion(binaryFrame)
 		case 3:
-			processedFrame, count = processor.ApplyConvexHull(binaryFrame)
+			processedFrame, blobs = processor.ApplyConvexHull(binaryFrame)
 		case 4:
-			processedFrame, count = processor.ApplyPerimeterArea(binaryFrame)
+			processedFrame, blobs = processor.ApplyPerimeterArea(binaryFrame)
 		case 5:
-			processedFrame, count = processor.ApplyMorphRepair(binaryFrame)
+			processedFrame, blobs = processor.ApplyMorphRepair(binaryFrame)
 		case 6:
-			processedFrame, count = processor.ApplyWatershed(binaryFrame)
+			processedFrame, blobs = processor.ApplyWatershed(binaryFrame)
 		case 7:
-			processedFrame, count = processor.ApplyDefectSplitting(binaryFrame)
+			processedFrame, blobs = processor.ApplyDefectSplitting(binaryFrame)
 		case 8:
-			processedFrame, count = processor.ApplySkeletonSplitting(binaryFrame)
+			processedFrame, blobs = processor.ApplySkeletonSplitting(binaryFrame)
 		case 9:
-			processedFrame, count = processor.ApplyDynamicAreaEstimation(binaryFrame)
+			processedFrame, blobs = processor.ApplyDynamicAreaEstimation(binaryFrame)
 		case 10:
-			processedFrame, count = processor.ApplyShapeFiltering(binaryFrame)
+			processedFrame, blobs = processor.ApplyShapeFiltering(binaryFrame)
 		case 11:
-			processedFrame, count = processor.ApplyNeighborMerge(binaryFrame)
+			processedFrame, blobs = processor.ApplyNeighborMerge(binaryFrame)
 		case 12:
-			processedFrame, count = processor.ApplyMotionConsistency(binaryFrame)
+			processedFrame, blobs = processor.ApplyMotionConsistency(binaryFrame)
 		case 13:
-			processedFrame, count = processor.ApplyTemporalStabilisation(binaryFrame)
+			processedFrame, blobs = processor.ApplyTemporalStabilisation(binaryFrame)
 		case 14:
-			processedFrame, count = processor.ApplyAdvancedPipeline(binaryFrame)
+			processedFrame, blobs = processor.ApplyAdvancedPipeline(binaryFrame)
+		}
+
+		// Step 3: Apply Persistent Tracking
+		activeCount := 0
+		if trackingMethod > 0 {
+			activeCount = processor.ApplyTracking(blobs, trackingMethod)
+			processor.OverlayTracks(processedFrame)
+		} else {
+			activeCount = len(blobs)
 		}
 
 		if err := output.WriteFrame(processedFrame); err != nil {
@@ -161,8 +185,8 @@ func main() {
 			elapsed := time.Since(fpsStart)
 			fps := float64(30) / elapsed.Seconds()
 			fpsStart = time.Now()
-			fmt.Printf("FPS: %.1f | White pixels: %d | Count: %d | Frame time: %v\n",
-				fps, processor.GetLastWhitePixelCount(), count, time.Since(frameStart))
+			fmt.Printf("FPS: %.1f | Blobs: %d | Tracks: %d | Frame time: %v\n",
+				fps, len(blobs), activeCount, time.Since(frameStart))
 		}
 	}
 	fmt.Println("\n=== Video Processing Stopped ===")

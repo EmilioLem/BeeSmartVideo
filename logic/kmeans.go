@@ -7,40 +7,43 @@ import (
 
 // ApplyKMeans applies k-means clustering to white pixels in the binary frame
 // and colors each cluster with a random color
-func (p *Processor) ApplyKMeans(binaryFrame []byte, k int) []byte {
+func (p *Processor) ApplyKMeans(binaryFrame []byte, k int) ([]byte, []Blob) {
 	// Extract white pixel coordinates
 	whitePixels := p.extractWhitePixels(binaryFrame)
 
 	if len(whitePixels) < k {
-		// Not enough white pixels for clustering, return original
-		return binaryFrame
+		// Not enough white pixels for clustering
+		return binaryFrame, nil
 	}
 
 	// Perform k-means clustering
 	clusters := p.kMeansClustering(whitePixels, k)
 
-	// Create output frame with clustered colors
+	// Group points by cluster
+	clusterPoints := make([][]Point, k)
+	for i, point := range whitePixels {
+		clusterID := clusters[i]
+		clusterPoints[clusterID] = append(clusterPoints[clusterID], point)
+	}
+
+	// Extract cluster blobs
+	blobs := p.ExtractBlobs(clusterPoints)
+
+	// Create output frame
 	outputFrame := make([]byte, len(binaryFrame))
 	copy(outputFrame, binaryFrame)
 
-	// Generate random colors for each cluster
-	clusterColors := make([][3]uint8, k)
-	for i := 0; i < k; i++ {
-		clusterColors[i] = p.GetVibrantColor(i)
+	for i, blob := range blobs {
+		color := p.GetVibrantColor(i)
+		for _, point := range blob.Points {
+			pixelIndex := (point.Y*p.width + point.X) * p.bytesPP
+			outputFrame[pixelIndex] = color[0]
+			outputFrame[pixelIndex+1] = color[1]
+			outputFrame[pixelIndex+2] = color[2]
+		}
 	}
 
-	// Color each white pixel based on its cluster
-	for i, point := range whitePixels {
-		clusterID := clusters[i]
-		pixelIndex := (point.Y*p.width + point.X) * p.bytesPP
-
-		color := clusterColors[clusterID]
-		outputFrame[pixelIndex] = color[0]
-		outputFrame[pixelIndex+1] = color[1]
-		outputFrame[pixelIndex+2] = color[2]
-	}
-
-	return outputFrame
+	return outputFrame, blobs
 }
 
 // extractWhitePixels returns coordinates of all white pixels in the frame

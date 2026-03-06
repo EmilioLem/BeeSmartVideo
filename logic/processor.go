@@ -1,8 +1,38 @@
 package logic
 
+import (
+	"strconv"
+)
+
 // Point represents a 2D point (pixel coordinate)
 type Point struct {
 	X, Y int
+}
+
+// BBox represents a bounding box
+type BBox struct {
+	MinX, MinY, MaxX, MaxY int
+}
+
+// Blob represents a detected object with metadata
+type Blob struct {
+	Points   []Point
+	Centroid Point
+	Area     int
+	BBox     BBox
+	Solidity float64
+	Ratio    float64 // Isoperimetric ratio
+}
+
+// Track represents a persistently tracked object
+type Track struct {
+	ID            int
+	Centroid      Point
+	History       []Point
+	LastSeenFrame int
+	Area          int
+	// Add velocity for Kalman-style prediction
+	VX, VY float64
 }
 
 // Processor handles all video frame processing logic
@@ -14,15 +44,20 @@ type Processor struct {
 	lastWhitePixelCount int
 	backgroundModel     []float64
 	bgDelta             float64
+	// Tracking state
+	Tracks      []Track
+	NextTrackID int
+	FrameCount  int
 }
 
 // NewProcessor creates a new processor instance
 func NewProcessor(width, height, bytesPP int, bgDelta float64) *Processor {
 	return &Processor{
-		width:   width,
-		height:  height,
-		bytesPP: bytesPP,
-		bgDelta: bgDelta,
+		width:       width,
+		height:      height,
+		bytesPP:     bytesPP,
+		bgDelta:     bgDelta,
+		NextTrackID: 1,
 	}
 }
 
@@ -46,6 +81,46 @@ func (p *Processor) FindBlobs(frame []byte) [][]Point {
 				}
 			}
 		}
+	}
+	return blobs
+}
+
+// ExtractBlobs converts raw point sets into Blob structs with metadata
+func (p *Processor) ExtractBlobs(pointGroups [][]Point) []Blob {
+	var blobs []Blob
+	for _, points := range pointGroups {
+		// BBox
+		minX, minY := p.width, p.height
+		maxX, maxY := 0, 0
+		sumX, sumY := 0, 0
+		for _, pt := range points {
+			if pt.X < minX {
+				minX = pt.X
+			}
+			if pt.X > maxX {
+				maxX = pt.X
+			}
+			if pt.Y < minY {
+				minY = pt.Y
+			}
+			if pt.Y > maxY {
+				maxY = pt.Y
+			}
+			sumX += pt.X
+			sumY += pt.Y
+		}
+
+		area := len(points)
+		bbox := BBox{minX, minY, maxX, maxY}
+		bboxArea := (maxX - minX + 1) * (maxY - minY + 1)
+
+		blobs = append(blobs, Blob{
+			Points:   points,
+			Centroid: Point{X: sumX / area, Y: sumY / area},
+			Area:     area,
+			BBox:     bbox,
+			Solidity: float64(area) / float64(bboxArea),
+		})
 	}
 	return blobs
 }
@@ -99,4 +174,172 @@ func (p *Processor) GetVibrantColor(i int) [3]uint8 {
 		{240, 230, 140}, // Khaki
 	}
 	return palette[i%len(palette)]
+}
+
+// --- Visualization Helpers (Bitmap Font) ---
+
+// font5x7 defines digits 0-9 as 7 rows of 5 boolean states for maximum legibility
+var font5x7 = [10][7][5]bool{
+	// 0
+	{
+		{true, true, true, true, true},
+		{true, false, false, false, true},
+		{true, false, false, false, true},
+		{true, false, false, false, true},
+		{true, false, false, false, true},
+		{true, false, false, false, true},
+		{true, true, true, true, true},
+	},
+	// 1
+	{
+		{false, false, true, false, false},
+		{false, true, true, false, false},
+		{false, false, true, false, false},
+		{false, false, true, false, false},
+		{false, false, true, false, false},
+		{false, false, true, false, false},
+		{true, true, true, true, true},
+	},
+	// 2
+	{
+		{true, true, true, true, true},
+		{false, false, false, false, true},
+		{false, false, false, false, true},
+		{true, true, true, true, true},
+		{true, false, false, false, false},
+		{true, false, false, false, false},
+		{true, true, true, true, true},
+	},
+	// 3
+	{
+		{true, true, true, true, true},
+		{false, false, false, false, true},
+		{false, false, false, false, true},
+		{true, true, true, true, true},
+		{false, false, false, false, true},
+		{false, false, false, false, true},
+		{true, true, true, true, true},
+	},
+	// 4
+	{
+		{true, false, false, false, true},
+		{true, false, false, false, true},
+		{true, false, false, false, true},
+		{true, true, true, true, true},
+		{false, false, false, false, true},
+		{false, false, false, false, true},
+		{false, false, false, false, true},
+	},
+	// 5
+	{
+		{true, true, true, true, true},
+		{true, false, false, false, false},
+		{true, false, false, false, false},
+		{true, true, true, true, true},
+		{false, false, false, false, true},
+		{false, false, false, false, true},
+		{true, true, true, true, true},
+	},
+	// 6
+	{
+		{true, true, true, true, true},
+		{true, false, false, false, false},
+		{true, false, false, false, false},
+		{true, true, true, true, true},
+		{true, false, false, false, true},
+		{true, false, false, false, true},
+		{true, true, true, true, true},
+	},
+	// 7
+	{
+		{true, true, true, true, true},
+		{false, false, false, false, true},
+		{false, false, false, false, true},
+		{false, false, false, true, false},
+		{false, false, true, false, false},
+		{false, true, false, false, false},
+		{true, false, false, false, false},
+	},
+	// 8
+	{
+		{true, true, true, true, true},
+		{true, false, false, false, true},
+		{true, false, false, false, true},
+		{true, true, true, true, true},
+		{true, false, false, false, true},
+		{true, false, false, false, true},
+		{true, true, true, true, true},
+	},
+	// 9
+	{
+		{true, true, true, true, true},
+		{true, false, false, false, true},
+		{true, false, false, false, true},
+		{true, true, true, true, true},
+		{false, false, false, false, true},
+		{false, false, false, false, true},
+		{true, true, true, true, true},
+	},
+}
+
+// DrawDigit renders a single 5x7 digit at (x,y) with scaling using the boolean font
+func (p *Processor) DrawDigit(buf []byte, digit, x, y, scale int, color [3]byte) {
+	if digit < 0 || digit > 9 {
+		return
+	}
+	f := font5x7[digit]
+	for row := 0; row < 7; row++ {
+		for col := 0; col < 5; col++ {
+			if f[row][col] {
+				for sy := 0; sy < scale; sy++ {
+					for sx := 0; sx < scale; sx++ {
+						px, py := x+col*scale+sx, y+row*scale+sy
+						if px >= 0 && px < p.width && py >= 0 && py < p.height {
+							idx := (py*p.width + px) * p.bytesPP
+							buf[idx], buf[idx+1], buf[idx+2] = color[0], color[1], color[2]
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// DrawNumber renders a multi-digit number with a background box and scaling
+func (p *Processor) DrawNumber(buf []byte, num, x, y, scale int, color [3]byte) {
+	s := strconv.Itoa(num)
+	charWidth := 5 * scale
+	charHeight := 7 * scale
+	spacing := 1 * scale
+	totalWidth := len(s)*charWidth + (len(s)-1)*spacing
+
+	// Draw background box (black) with padding
+	padding := 2 * scale
+	bgX, bgY := x-padding, y-padding
+	bgW, bgH := totalWidth+padding*2, charHeight+padding*2
+
+	for py := bgY; py < bgY+bgH; py++ {
+		for px := bgX; px < bgX+bgW; px++ {
+			if px >= 0 && px < p.width && py >= 0 && py < p.height {
+				idx := (py*p.width + px) * p.bytesPP
+				buf[idx], buf[idx+1], buf[idx+2] = 0, 0, 0
+			}
+		}
+	}
+
+	// Draw digits
+	for i, char := range s {
+		digit := int(char - '0')
+		p.DrawDigit(buf, digit, x+i*(charWidth+spacing), y, scale, color)
+	}
+}
+
+// OverlayTracks draws track IDs near their current centroids
+func (p *Processor) OverlayTracks(buf []byte) {
+	for _, t := range p.Tracks {
+		// Centered above the bee, scale 2 usually works well for 5x7
+		scale := 2
+		// Offset slightly to be above the centroid
+		p.DrawNumber(buf, t.ID, t.Centroid.X-10, t.Centroid.Y-25, scale, [3]byte{255, 255, 255})
+	}
 }

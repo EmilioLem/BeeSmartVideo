@@ -2,8 +2,8 @@ package logic
 
 // ApplyErosion applies erosion to the binary frame to separate tight groups of bees
 // then counts the connected components.
-func (p *Processor) ApplyErosion(binaryFrame []byte) ([]byte, int) {
-	// 1. Perform Erosion
+func (p *Processor) ApplyErosion(binaryFrame []byte) ([]byte, []Blob) {
+	// ... (content remains the same, just the signature change)
 	erodedFrame := make([]byte, len(binaryFrame))
 	copy(erodedFrame, binaryFrame)
 
@@ -29,15 +29,15 @@ func (p *Processor) ApplyErosion(binaryFrame []byte) ([]byte, int) {
 	}
 
 	// 2. Count Connected Components (Blobs) using shared FindBlobs
-	blobs := p.FindBlobs(erodedFrame)
-	count := len(blobs)
+	points := p.FindBlobs(erodedFrame)
+	blobs := p.ExtractBlobs(points)
 
 	// Create output frame with colored blobs
 	outputFrame := make([]byte, len(binaryFrame))
 
 	for i, blob := range blobs {
 		color := p.GetVibrantColor(i)
-		for _, pt := range blob {
+		for _, pt := range blob.Points {
 			pIdx := (pt.Y*p.width + pt.X) * p.bytesPP
 			outputFrame[pIdx] = color[0]
 			outputFrame[pIdx+1] = color[1]
@@ -45,5 +45,5 @@ func (p *Processor) ApplyErosion(binaryFrame []byte) ([]byte, int) {
 		}
 	}
 
-	return outputFrame, count
+	return outputFrame, blobs
 }

@@ -5,39 +5,39 @@ import (
 )
 
 // ApplyPerimeterArea analyzes blobs by comparing their perimeter to their area.
-func (p *Processor) ApplyPerimeterArea(binaryFrame []byte) ([]byte, int) {
-	blobs := p.FindBlobs(binaryFrame)
-	count := 0
+func (p *Processor) ApplyPerimeterArea(binaryFrame []byte) ([]byte, []Blob) {
+	points := p.FindBlobs(binaryFrame)
+	rawBlobs := p.ExtractBlobs(points)
+	var finalBlobs []Blob
 
 	outputFrame := make([]byte, len(binaryFrame))
 
-	for i, blob := range blobs {
-		area := float64(len(blob))
-		perimeter := p.calculatePerimeter(blob)
-
+	for i, b := range rawBlobs {
+		perimeter := p.calculatePerimeter(b.Points)
 		// Isoperimetric quotient (circularity) proxy: Perimeter^2 / Area
-		// For a circle, it's 4*PI (~12.57).
-		// For an oval bee, it might be 15-20.
-		ratio := (perimeter * perimeter) / area
+		ratio := (perimeter * perimeter) / float64(b.Area)
+		b.Ratio = ratio
 
 		beesInBlob := 1
-		if area > 500 {
+		if b.Area > 500 {
 			if ratio > 25 {
-				// High perimeter relative to area => complex shape, likely multiple bees
-				beesInBlob = int(math.Round(area / 400.0))
+				beesInBlob = int(math.Round(float64(b.Area) / 400.0))
 			} else {
-				beesInBlob = int(math.Round(area / 450.0))
+				beesInBlob = int(math.Round(float64(b.Area) / 450.0))
 			}
 		}
 		if beesInBlob < 1 {
 			beesInBlob = 1
 		}
-		count += beesInBlob
+
+		for j := 0; j < beesInBlob; j++ {
+			finalBlobs = append(finalBlobs, b)
+		}
 
 		// Color with a unique vibrant color
 		color := p.GetVibrantColor(i)
 
-		for _, pt := range blob {
+		for _, pt := range b.Points {
 			pIdx := (pt.Y*p.width + pt.X) * p.bytesPP
 			outputFrame[pIdx] = color[0]
 			outputFrame[pIdx+1] = color[1]
@@ -45,7 +45,7 @@ func (p *Processor) ApplyPerimeterArea(binaryFrame []byte) ([]byte, int) {
 		}
 	}
 
-	return outputFrame, count
+	return outputFrame, finalBlobs
 }
 
 // calculatePerimeter estimates the perimeter of a blob by counting boundary pixels
