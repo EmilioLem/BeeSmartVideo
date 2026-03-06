@@ -12,6 +12,7 @@ type Processor struct {
 	bytesPP             int
 	originalFrame       []byte
 	lastWhitePixelCount int
+	backgroundModel     []float64
 }
 
 // NewProcessor creates a new processor instance

@@ -105,17 +105,54 @@ func (p *Processor) OtsuThreshold(frame []byte) uint8 {
 	return threshold
 }
 
+// BasicMovementLayer performs background subtraction using a running average (frame-over-time).
+func (p *Processor) BasicMovementLayer(frame []byte, delta float64, threshold uint8) []byte {
+	if len(p.backgroundModel) != len(frame) {
+		p.backgroundModel = make([]float64, len(frame))
+		for i, v := range frame {
+			p.backgroundModel[i] = float64(v)
+		}
+	}
+
+	binaryFrame := make([]byte, len(frame))
+	for i := 0; i < len(frame); i++ {
+		// Update background model: BG = BG * (1-delta) + current * delta
+		p.backgroundModel[i] = p.backgroundModel[i]*(1.0-delta) + float64(frame[i])*delta
+
+		// Calculate absolute difference
+		diff := math.Abs(float64(frame[i]) - p.backgroundModel[i])
+
+		if diff > float64(threshold) {
+			binaryFrame[i] = 255
+		} else {
+			binaryFrame[i] = 0
+		}
+	}
+
+	// Store original for consistency
+	p.originalFrame = make([]byte, len(frame))
+	copy(p.originalFrame, frame)
+	p.lastWhitePixelCount = p.countWhitePixels(binaryFrame)
+
+	return binaryFrame
+}
+
 // ProcessWithThresholdMode applies the binary conversion using the selected threshold mode.
 func (p *Processor) ProcessWithThresholdMode(frame []byte, mode int) []byte {
 	var threshold uint8
 	switch mode {
 	case 2:
 		threshold = p.AdaptiveThreshold(frame)
+		return p.BinaryGrayscaleInverseWithThreshold(frame, threshold)
 	case 3:
 		threshold = p.OtsuThreshold(frame)
+		return p.BinaryGrayscaleInverseWithThreshold(frame, threshold)
+	case 4:
+		// Category 2: Frame-over-time
+		// Use a delta of 0.05 (5%) and a movement threshold of 30
+		return p.BasicMovementLayer(frame, 0.05, 30)
 	default:
 		threshold = 128
+		return p.BinaryGrayscaleInverseWithThreshold(frame, threshold)
 	}
-
-	return p.BinaryGrayscaleInverseWithThreshold(frame, threshold)
 }

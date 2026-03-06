@@ -20,7 +20,7 @@ To handle different lighting conditions, BeeSmartVideo supports multiple binariz
 ## Prerequisites
 
 - **Go**: Version 1.25.5 or higher.
-- **FFMPEG**: Required for capturing live video from `/dev/video0`.
+- **FFMPEG**: Required for capturing live video from `/dev/video0` (internal) and `/dev/video2` (external).
 - **FFplay**: Required for displaying the processed video window.
 
 ## Installation
@@ -37,20 +37,20 @@ To handle different lighting conditions, BeeSmartVideo supports multiple binariz
 You can run the tool using `go run main.go` or by using the provided executable.
 
 ### Windows Users
-Run the `program.exe` file followed by the method number and threshold mode:
+Run the `program.exe` file followed by the method number, threshold mode, and camera type:
 ```cmd
-program.exe [method_number] [threshold_mode]
+program.exe [method_number] [threshold_mode] [camera_index]
 ```
 
 ### Linux Users
 Run the `program` binary:
 ```bash
-./program [method_number] [threshold_mode]
+./program [method_number] [threshold_mode] [camera_index]
 ```
 
 ### From Source
 ```bash
-go run main.go [method_number] [threshold_mode]
+go run main.go [method_number] [threshold_mode] [camera_index]
 ```
 
 ### Arguments
@@ -64,12 +64,16 @@ go run main.go [method_number] [threshold_mode]
     - `1`: Static Threshold
     - `2`: Adaptive Peak Midpoint
     - `3`: Otsu's Global Threshold
+- **camera_index** (optional, default: `0`):
+    - `0`: Internal Built-in Camera (`/dev/video0`)
+    - `2`: External Camera (`/dev/video2`)
+    - (Any other number if your system recognizes the device at a different index)
 
 ### Example
 
-To run the tool using the Erosion Technique with Otsu's Global Threshold:
+To run the tool using the Erosion Technique with Otsu's Global Threshold on the external camera (index 2):
 ```bash
-go run main.go 2 3
+go run main.go 2 3 2
 ```
 
 ## Project Structure

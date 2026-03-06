@@ -17,19 +17,29 @@ const (
 )
 
 func printMenu() {
-	fmt.Println("Available Counting Methods:")
-	fmt.Println("  1: K-Means Clustering")
-	fmt.Println("  2: Erosion Technique")
-	fmt.Println("  3: Convex Area Classification")
-	fmt.Println("  4: Perimeter vs Area Comparison")
-	fmt.Println("\nAvailable Threshold Modes:")
+	fmt.Println("\n=== BeeSmartVideo Usage ===")
+	fmt.Println("Usage: go run main.go [segmentation_method] [mode] [camera_index]")
+
+	fmt.Println("\n[1] Segmentation Methods (Counting):")
+	fmt.Println("  1: K-Means Clustering (fixed K=7)")
+	fmt.Println("  2: Morphological Erosion + CCL")
+	fmt.Println("  3: Solidity Analysis (Convex Hull)")
+	fmt.Println("  4: Isoperimetric Quotient (Perimeter/Area)")
+
+	fmt.Println("\n[2] Processing Modes:")
+	fmt.Println("  --- Category: Single Frame Thresholding ---")
 	fmt.Println("  1: Static Threshold (128)")
-	fmt.Println("  2: Adaptive Peak Midpoint (Sampling 5%)")
+	fmt.Println("  2: Adaptive Two-Peak Threshold")
 	fmt.Println("  3: Otsu's Global Threshold")
-	fmt.Println("\nUsage:")
-	fmt.Println("  go run main.go [method_number] [threshold_mode]")
-	fmt.Println("  ./program [method_number] [threshold_mode] (Linux)")
-	fmt.Println("  program.exe [method_number] [threshold_mode] (Windows)")
+	fmt.Println("  --- Category: Frame-over-Time ---")
+	fmt.Println("  4: Basic Movement Layer (Background Subtraction)")
+
+	fmt.Println("\n[3] Camera Index:")
+	fmt.Println("  0: /dev/video0 (Internal)")
+	fmt.Println("  2: /dev/video2 (External)")
+
+	fmt.Println("\nExample:")
+	fmt.Println("  go run main.go 2 4 0  (Erosion + Movement Layer on Cam 0)")
 }
 
 func main() {
@@ -48,18 +58,24 @@ func main() {
 	thresholdMode := 1
 	if len(os.Args) >= 3 {
 		tm, err := strconv.Atoi(os.Args[2])
-		if err == nil && tm >= 1 && tm <= 3 {
+		if err == nil && tm >= 1 && tm <= 4 {
 			thresholdMode = tm
 		}
 	}
 
+	deviceIndex := "0"
+	if len(os.Args) >= 4 {
+		deviceIndex = os.Args[3]
+	}
+	device := fmt.Sprintf("/dev/video%s", deviceIndex)
+
 	fmt.Println("=== Video Processing Started ===")
-	fmt.Printf("Selected Method: %d | Threshold Mode: %d\n", method, thresholdMode)
+	fmt.Printf("Selected Method: %d | Threshold Mode: %d | Camera: %s\n", method, thresholdMode, device)
 	fmt.Println("Press Ctrl+C to exit")
 
 	// Initialize input stream from webcam
 	// ... (rest of main remains similar but uses ProcessWithThresholdMode)
-	input, err := in.NewLiveInput("/dev/video0", width, height)
+	input, err := in.NewLiveInput(device, width, height)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to initialize input: %v", err))
 	}
