@@ -129,8 +129,10 @@ func (p *Processor) BasicMovementLayer(frame []byte, threshold uint8) []byte {
 		}
 	}
 
-	// Store original for consistency
-	p.originalFrame = make([]byte, len(frame))
+	// Store original for consistency (reusing buffer)
+	if len(p.originalFrame) != len(frame) {
+		p.originalFrame = make([]byte, len(frame))
+	}
 	copy(p.originalFrame, frame)
 	p.lastWhitePixelCount = p.countWhitePixels(binaryFrame)
 

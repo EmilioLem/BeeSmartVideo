@@ -11,10 +11,12 @@ import (
 )
 
 const (
-	width   = 640
-	height  = 480
-	bytesPP = 3     // RGB24
-	bgDelta = 0.005 // Background adaptation speed (~1 min at 30fps)
+	inWidth  = 1280 // Capture resolution
+	inHeight = 720
+	width    = 426 // Processing resolution (240p)
+	height   = 240
+	bytesPP  = 3     // RGB24
+	bgDelta  = 0.005 // Background adaptation speed (~1 min at 30fps)
 )
 
 func printMenu() {
@@ -115,7 +117,7 @@ func main() {
 	fmt.Println("Press Ctrl+C to exit")
 
 	// Initialize input stream from webcam
-	input, err := in.NewLiveInput(device, width, height)
+	input, err := in.NewLiveInput(device, inWidth, inHeight)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to initialize input: %v", err))
 	}
@@ -134,14 +136,19 @@ func main() {
 	fpsStart := time.Now()
 
 	for {
-
 		frame, err := input.ReadFrame()
 		if err != nil {
 			break
 		}
 
+		// Store full res frame for future use
+		processor.FullResFrame = frame
+
+		// Downsample to processing resolution (240p)
+		smallFrame := processor.Subsample3x(frame, inWidth, inHeight)
+
 		// Step 1: Binary conversion with selected threshold mode
-		binaryFrame := processor.ProcessWithThresholdMode(frame, thresholdMode)
+		binaryFrame := processor.ProcessWithThresholdMode(smallFrame, thresholdMode)
 
 		// Step 2: Apply selected counting method
 		var processedFrame []byte

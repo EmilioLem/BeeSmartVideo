@@ -44,6 +44,8 @@ type Processor struct {
 	lastWhitePixelCount int
 	backgroundModel     []float64
 	bgDelta             float64
+	// High-resolution storage
+	FullResFrame []byte
 	// Tracking state
 	Tracks      []Track
 	NextTrackID int
@@ -370,4 +372,41 @@ func (p *Processor) OverlayTracks(buf []byte) {
 // GetCounts returns the current Up/Down counts
 func (p *Processor) GetCounts() (int, int) {
 	return p.CountUp, p.CountDown
+}
+
+// Subsample2x reduces a frame's resolution by 2x (e.g., 720p to 360p)
+func (p *Processor) Subsample2x(src []byte, srcW, srcH int) []byte {
+	dstW, dstH := srcW/2, srcH/2
+	dst := make([]byte, dstW*dstH*p.bytesPP)
+
+	for y := 0; y < dstH; y++ {
+		for x := 0; x < dstW; x++ {
+			srcIdx := (y*2*srcW + x*2) * p.bytesPP
+			dstIdx := (y*dstW + x) * p.bytesPP
+
+			dst[dstIdx] = src[srcIdx]
+			dst[dstIdx+1] = src[srcIdx+1]
+			dst[dstIdx+2] = src[srcIdx+2]
+		}
+	}
+	return dst
+}
+
+// Subsample3x reduces a frame's resolution by 3x (e.g., 720p to ~240p)
+// For 1280x720, this creates a 426x240 image.
+func (p *Processor) Subsample3x(src []byte, srcW, srcH int) []byte {
+	dstW, dstH := srcW/3, srcH/3
+	dst := make([]byte, dstW*dstH*p.bytesPP)
+
+	for y := 0; y < dstH; y++ {
+		for x := 0; x < dstW; x++ {
+			srcIdx := (y*3*srcW + x*3) * p.bytesPP
+			dstIdx := (y*dstW + x) * p.bytesPP
+
+			dst[dstIdx] = src[srcIdx]
+			dst[dstIdx+1] = src[srcIdx+1]
+			dst[dstIdx+2] = src[srcIdx+2]
+		}
+	}
+	return dst
 }

@@ -24,7 +24,7 @@ func (p *Processor) ApplyTracking(blobs []Blob, method int) int {
 		return len(blobs)
 	}
 
-	p.cleanupDeadTracks(10) // Release tracks not seen for 10 frames
+	p.cleanupDeadTracks(3) // Release tracks not seen for 3 frames (reduces ghosts)
 	return len(p.Tracks)
 }
 
