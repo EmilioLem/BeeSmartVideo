@@ -48,6 +48,9 @@ type Processor struct {
 	Tracks      []Track
 	NextTrackID int
 	FrameCount  int
+	// Counting state
+	CountUp   int
+	CountDown int
 }
 
 // NewProcessor creates a new processor instance
@@ -334,12 +337,32 @@ func (p *Processor) DrawNumber(buf []byte, num, x, y, scale int, color [3]byte) 
 	}
 }
 
-// OverlayTracks draws track IDs near their current centroids
+// OverlayTracks draws track IDs near their current centroids and the counting boundary
 func (p *Processor) OverlayTracks(buf []byte) {
+	// Draw horizontal boundary line (White and Black for contrast)
+	midY := p.height / 2
+	for x := 0; x < p.width; x++ {
+		idx := (midY*p.width + x) * p.bytesPP
+		// Black line
+		buf[idx], buf[idx+1], buf[idx+2] = 0, 0, 0
+		// White dotted/dashed look or just a second line above/below
+		if x%4 < 2 {
+			idx2 := ((midY+1)*p.width + x) * p.bytesPP
+			if midY+1 < p.height {
+				buf[idx2], buf[idx2+1], buf[idx2+2] = 255, 255, 255
+			}
+		}
+	}
+
 	for _, t := range p.Tracks {
 		// Centered above the bee, scale 2 usually works well for 5x7
 		scale := 2
 		// Offset slightly to be above the centroid
 		p.DrawNumber(buf, t.ID, t.Centroid.X-10, t.Centroid.Y-25, scale, [3]byte{255, 255, 255})
 	}
+}
+
+// GetCounts returns the current Up/Down counts
+func (p *Processor) GetCounts() (int, int) {
+	return p.CountUp, p.CountDown
 }

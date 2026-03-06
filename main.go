@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"time"
 )
 
 const (
@@ -119,10 +118,8 @@ func main() {
 	processor := logic.NewProcessor(width, height, bytesPP, bgDelta)
 
 	frameCount := 0
-	fpsStart := time.Now()
 
 	for {
-		frameStart := time.Now()
 
 		frame, err := input.ReadFrame()
 		if err != nil {
@@ -181,12 +178,9 @@ func main() {
 		}
 
 		frameCount++
-		if frameCount%30 == 0 {
-			elapsed := time.Since(fpsStart)
-			fps := float64(30) / elapsed.Seconds()
-			fpsStart = time.Now()
-			fmt.Printf("FPS: %.1f | Blobs: %d | Tracks: %d | Frame time: %v\n",
-				fps, len(blobs), activeCount, time.Since(frameStart))
+		if frameCount%10 == 0 {
+			up, down := processor.GetCounts()
+			fmt.Printf("\rUP: %d | DOWN: %d | Active: %d | Blobs: %d   ", up, down, activeCount, len(blobs))
 		}
 	}
 	fmt.Println("\n=== Video Processing Stopped ===")

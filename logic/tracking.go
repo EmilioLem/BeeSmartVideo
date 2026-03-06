@@ -217,6 +217,20 @@ func (p *Processor) trackMotionGated(blobs []Blob) {
 // --- Internal Track Management ---
 
 func (p *Processor) updateTrack(track *Track, blob Blob) {
+	oldY := track.Centroid.Y
+	midY := p.height / 2
+
+	// Crossover Detection (Horizontal line in middle)
+	if oldY >= midY && blob.Centroid.Y < midY {
+		p.CountUp++
+	} else if oldY <= midY && blob.Centroid.Y > midY {
+		p.CountDown++
+	}
+
+	// Calculate velocity
+	track.VX = float64(blob.Centroid.X - track.Centroid.X)
+	track.VY = float64(blob.Centroid.Y - track.Centroid.Y)
+
 	track.Centroid = blob.Centroid
 	track.Area = blob.Area
 	track.LastSeenFrame = p.FrameCount
