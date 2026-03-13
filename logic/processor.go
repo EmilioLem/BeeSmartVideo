@@ -57,6 +57,10 @@ type Processor struct {
 	ShowIDs bool
 	// Smoothness level (0-4)
 	Smoothness int
+	// Persistent buffers for optimization
+	visitedTemp []bool
+	binaryTemp  []byte
+	generalTemp []byte
 }
 
 // NewProcessor creates a new processor instance
@@ -68,6 +72,10 @@ func NewProcessor(width, height, bytesPP int, bgDelta float64) *Processor {
 		bgDelta:     bgDelta,
 		NextTrackID: 1,
 		ShowIDs:     true, // Default to true
+		// Pre-allocate buffers
+		visitedTemp: make([]bool, width*height),
+		binaryTemp:  make([]byte, width*height*bytesPP),
+		generalTemp: make([]byte, width*height*bytesPP),
 	}
 }
 
@@ -78,14 +86,16 @@ func (p *Processor) GetOriginalFrame() []byte {
 
 // FindBlobs identifies connected components in a binary frame
 func (p *Processor) FindBlobs(frame []byte) [][]Point {
-	visited := make([]bool, p.width*p.height)
+	for i := range p.visitedTemp {
+		p.visitedTemp[i] = false
+	}
 	var blobs [][]Point
 
 	for y := 0; y < p.height; y++ {
 		for x := 0; x < p.width; x++ {
 			pixelIdx := y*p.width + x
-			if !visited[pixelIdx] && frame[pixelIdx*p.bytesPP] == 255 {
-				blob := p.floodFill(frame, visited, x, y)
+			if !p.visitedTemp[pixelIdx] && frame[pixelIdx*p.bytesPP] == 255 {
+				blob := p.floodFill(frame, p.visitedTemp, x, y)
 				if len(blob) > 10 { // Filter out noise
 					blobs = append(blobs, blob)
 				}
@@ -398,8 +408,12 @@ func (p *Processor) ApplyBlur(frame []byte) []byte {
 	kSize := kernelSizes[p.Smoothness]
 	radius := kSize / 2
 
-	temp := make([]byte, len(frame))
-	out := make([]byte, len(frame))
+	if len(p.generalTemp) != len(frame) {
+		p.generalTemp = make([]byte, len(frame))
+		p.binaryTemp = make([]byte, len(frame))
+	}
+	temp := p.generalTemp
+	out := p.binaryTemp
 
 	// Horizontal pass
 	for y := 0; y < p.height; y++ {
@@ -475,7 +489,10 @@ func (p *Processor) Subsample2x(src []byte, srcW, srcH int) []byte {
 // For 1280x720, this creates a 426x240 image.
 func (p *Processor) Subsample3x(src []byte, srcW, srcH int) []byte {
 	dstW, dstH := srcW/3, srcH/3
-	dst := make([]byte, dstW*dstH*p.bytesPP)
+	if len(p.generalTemp) != dstW*dstH*p.bytesPP {
+		p.generalTemp = make([]byte, dstW*dstH*p.bytesPP)
+	}
+	dst := p.generalTemp
 
 	for y := 0; y < dstH; y++ {
 		for x := 0; x < dstW; x++ {

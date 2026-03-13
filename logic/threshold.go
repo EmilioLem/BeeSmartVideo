@@ -114,7 +114,10 @@ func (p *Processor) BasicMovementLayer(frame []byte, threshold uint8) []byte {
 		}
 	}
 
-	binaryFrame := make([]byte, len(frame))
+	if len(p.generalTemp) != len(frame) {
+		p.generalTemp = make([]byte, len(frame))
+	}
+	binaryFrame := p.generalTemp
 	for i := 0; i < len(frame); i++ {
 		// Update background model: BG = BG * (1-delta) + current * delta
 		p.backgroundModel[i] = p.backgroundModel[i]*(1.0-p.bgDelta) + float64(frame[i])*p.bgDelta

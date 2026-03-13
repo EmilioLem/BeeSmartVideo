@@ -24,6 +24,8 @@ func NewLiveInput(device string, width, height int) (*LiveInput, error) {
 		"ffmpeg",
 		"-loglevel", "quiet",
 		"-f", "v4l2",
+		"-framerate", "30",
+		"-input_format", "mjpeg",
 		"-video_size", fmt.Sprintf("%dx%d", width, height),
 		"-i", device,
 		"-pix_fmt", "rgb24",

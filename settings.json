@@ -2,7 +2,7 @@
   "method": 13,
   "threshold_mode": 4,
   "device_index": "2",
-  "tracking_method": 6,
+  "tracking_method": 3,
   "show_ids": true,
   "smoothness": 1
 }

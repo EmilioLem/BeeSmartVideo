@@ -9,7 +9,14 @@ import (
 
 // erode performs a 3x3 erosion
 func (p *Processor) erode(binaryFrame []byte) []byte {
-	eroded := make([]byte, len(binaryFrame))
+	if len(p.generalTemp) != len(binaryFrame) {
+		p.generalTemp = make([]byte, len(binaryFrame))
+	}
+	eroded := p.generalTemp
+	// Reset buffer
+	for i := range eroded {
+		eroded[i] = 0
+	}
 	for y := 1; y < p.height-1; y++ {
 		for x := 1; x < p.width-1; x++ {
 			idx := (y*p.width + x) * p.bytesPP
@@ -34,7 +41,14 @@ func (p *Processor) erode(binaryFrame []byte) []byte {
 
 // dilate performs a 3x3 dilation
 func (p *Processor) dilate(binaryFrame []byte) []byte {
-	dilated := make([]byte, len(binaryFrame))
+	if len(p.binaryTemp) != len(binaryFrame) {
+		p.binaryTemp = make([]byte, len(binaryFrame))
+	}
+	dilated := p.binaryTemp
+	// Reset buffer
+	for i := range dilated {
+		dilated[i] = 0
+	}
 	for y := 1; y < p.height-1; y++ {
 		for x := 1; x < p.width-1; x++ {
 			idx := (y*p.width + x) * p.bytesPP
@@ -252,7 +266,13 @@ func (p *Processor) ApplyAdvancedPipeline(binaryFrame []byte) ([]byte, []Blob) {
 // --- Additional Utilities ---
 
 func (p *Processor) colorBlobs(blobs []Blob) []byte {
-	out := make([]byte, p.width*p.height*p.bytesPP)
+	if len(p.binaryTemp) != p.width*p.height*p.bytesPP {
+		p.binaryTemp = make([]byte, p.width*p.height*p.bytesPP)
+	}
+	out := p.binaryTemp
+	for i := range out {
+		out[i] = 0
+	}
 	for i, b := range blobs {
 		c := p.GetVibrantColor(i)
 		for _, pt := range b.Points {
