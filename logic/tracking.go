@@ -19,12 +19,18 @@ func (p *Processor) ApplyTracking(blobs []Blob, method int) int {
 		p.trackMultiFeature(blobs)
 	case 5:
 		p.trackMotionGated(blobs)
+	case 6:
+		p.trackPersistent(blobs)
 	default:
 		// No tracking or invalid method - return count of blobs as default fallback
 		return len(blobs)
 	}
 
-	p.cleanupDeadTracks(3) // Release tracks not seen for 3 frames (reduces ghosts)
+	maxMissing := 3
+	if method == 6 {
+		maxMissing = 30 // Keep tracks alive for 30 frames
+	}
+	p.cleanupDeadTracks(maxMissing)
 	return len(p.Tracks)
 }
 
@@ -211,6 +217,65 @@ func (p *Processor) trackMotionGated(blobs []Blob) {
 		}
 	}
 
+	p.createNewTracks(blobs, matchedBlobs)
+}
+
+// 6. Persistent Tracker (High Persistence + Path Length Priority)
+func (p *Processor) trackPersistent(blobs []Blob) {
+	type Match struct {
+		trackIdx int
+		blobIdx  int
+		dist     float64
+		pathLen  int
+	}
+	var matches []Match
+
+	maxDist := 60.0
+
+	for i, track := range p.Tracks {
+		for j, blob := range blobs {
+			dist := p.euclideanDistance(track.Centroid, blob.Centroid)
+			if dist < maxDist {
+				matches = append(matches, Match{
+					trackIdx: i,
+					blobIdx:  j,
+					dist:     dist,
+					pathLen:  len(track.History),
+				})
+			}
+		}
+	}
+
+	// Sort matches:
+	// 1. Prioritize longer paths (pathLen descending)
+	// 2. Then prioritize shorter distances (dist ascending)
+	for i := 0; i < len(matches); i++ {
+		for j := i + 1; j < len(matches); j++ {
+			higherPriority := false
+			if matches[i].pathLen < matches[j].pathLen {
+				higherPriority = true
+			} else if matches[i].pathLen == matches[j].pathLen && matches[i].dist > matches[j].dist {
+				higherPriority = true
+			}
+
+			if higherPriority {
+				matches[i], matches[j] = matches[j], matches[i]
+			}
+		}
+	}
+
+	matchedTracks := make([]bool, len(p.Tracks))
+	matchedBlobs := make([]bool, len(blobs))
+
+	for _, m := range matches {
+		if !matchedTracks[m.trackIdx] && !matchedBlobs[m.blobIdx] {
+			p.updateTrack(&p.Tracks[m.trackIdx], blobs[m.blobIdx])
+			matchedTracks[m.trackIdx] = true
+			matchedBlobs[m.blobIdx] = true
+		}
+	}
+
+	// Create new tracks for unmatched blobs
 	p.createNewTracks(blobs, matchedBlobs)
 }
 

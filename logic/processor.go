@@ -55,6 +55,8 @@ type Processor struct {
 	CountDown int
 	// Visualization toggle
 	ShowIDs bool
+	// Smoothness level (0-4)
+	Smoothness int
 }
 
 // NewProcessor creates a new processor instance
@@ -360,13 +362,90 @@ func (p *Processor) OverlayTracks(buf []byte) {
 	}
 
 	if p.ShowIDs {
-		for _, t := range p.Tracks {
+		for i, t := range p.Tracks {
+			color := p.GetVibrantColor(i)
+			// Draw path history (dots)
+			for _, pt := range t.History {
+				// Draw a 2x2 dot for each history point
+				for dy := 0; dy < 2; dy++ {
+					for dx := 0; dx < 2; dx++ {
+						px, py := pt.X+dx, pt.Y+dy
+						if px >= 0 && px < p.width && py >= 0 && py < p.height {
+							idx := (py*p.width + px) * p.bytesPP
+							buf[idx], buf[idx+1], buf[idx+2] = color[0], color[1], color[2]
+						}
+					}
+				}
+			}
+
 			// Centered above the bee, scale 2 usually works well for 5x7
 			scale := 2
 			// Offset slightly to be above the centroid
 			p.DrawNumber(buf, t.ID, t.Centroid.X-10, t.Centroid.Y-25, scale, [3]byte{255, 255, 255})
 		}
 	}
+}
+
+// ApplyBlur applies a box blur to the frame based on p.Smoothness level (0-4).
+// Uses a separable horizontal and vertical pass for efficiency.
+func (p *Processor) ApplyBlur(frame []byte) []byte {
+	if p.Smoothness <= 0 {
+		return frame
+	}
+
+	// Kernel sizes corresponding to 0, 1, 2, 3, 4
+	kernelSizes := []int{0, 3, 5, 7, 9}
+	kSize := kernelSizes[p.Smoothness]
+	radius := kSize / 2
+
+	temp := make([]byte, len(frame))
+	out := make([]byte, len(frame))
+
+	// Horizontal pass
+	for y := 0; y < p.height; y++ {
+		for x := 0; x < p.width; x++ {
+			var rSum, gSum, bSum int
+			count := 0
+			for kx := -radius; kx <= radius; kx++ {
+				nx := x + kx
+				if nx >= 0 && nx < p.width {
+					idx := (y*p.width + nx) * p.bytesPP
+					rSum += int(frame[idx])
+					gSum += int(frame[idx+1])
+					bSum += int(frame[idx+2])
+					count++
+				}
+			}
+			idx := (y*p.width + x) * p.bytesPP
+			temp[idx] = uint8(rSum / count)
+			temp[idx+1] = uint8(gSum / count)
+			temp[idx+2] = uint8(bSum / count)
+		}
+	}
+
+	// Vertical pass
+	for x := 0; x < p.width; x++ {
+		for y := 0; y < p.height; y++ {
+			var rSum, gSum, bSum int
+			count := 0
+			for ky := -radius; ky <= radius; ky++ {
+				ny := y + ky
+				if ny >= 0 && ny < p.height {
+					idx := (ny*p.width + x) * p.bytesPP
+					rSum += int(temp[idx])
+					gSum += int(temp[idx+1])
+					bSum += int(temp[idx+2])
+					count++
+				}
+			}
+			idx := (y*p.width + x) * p.bytesPP
+			out[idx] = uint8(rSum / count)
+			out[idx+1] = uint8(gSum / count)
+			out[idx+2] = uint8(bSum / count)
+		}
+	}
+
+	return out
 }
 
 // GetCounts returns the current Up/Down counts

@@ -21,7 +21,7 @@ const (
 
 func printMenu() {
 	fmt.Println("\n=== BeeSmartVideo Usage ===")
-	fmt.Println("Usage: go run main.go [method] [mode] [cam] [tracking] [show_ids]")
+	fmt.Println("Usage: go run main.go [method] [mode] [cam] [tracking] [show_ids] [smoothness]")
 
 	fmt.Println("\n[1] Segmentation Methods (Counting):")
 	fmt.Println("  --- Category: Initial Methods ---")
@@ -51,11 +51,14 @@ func printMenu() {
 
 	fmt.Println("\n[3] Persistent Tracking Methods:")
 	fmt.Println("  0: No Tracking (Raw Detection Count)")
+	fmt.Println("  --- Category: Per-Frame ---")
 	fmt.Println("  1: Nearest-Centroid Tracker (Baseline)")
 	fmt.Println("  2: Hungarian Assignment (Optimal Matching)")
 	fmt.Println("  3: Kalman Filter (Prediction-Based)")
 	fmt.Println("  4: Multi-Feature Matching (Shape/Area)")
 	fmt.Println("  5: Motion-Gated Assignment (Plausibility)")
+	fmt.Println("  --- Category: Long-Term (Persistent) ---")
+	fmt.Println("  6: Deep Path Tracker (30+ Frames Persistence)")
 
 	fmt.Println("\n[4] Camera Index:")
 	fmt.Println("  0: /dev/video0 (Internal)")
@@ -63,9 +66,15 @@ func printMenu() {
 	fmt.Println("\n[5] ID Visualization:")
 	fmt.Println("  1: Enabled (Default)")
 	fmt.Println("  0: Disabled")
+	fmt.Println("\n[6] Smoothness (Blur):")
+	fmt.Println("  0: None (Default)")
+	fmt.Println("  1: Light (3x3)")
+	fmt.Println("  2: Medium (5x5)")
+	fmt.Println("  3: High (7x7)")
+	fmt.Println("  4: Aggressive (9x9)")
 
 	fmt.Println("\nExample:")
-	fmt.Println("  go run main.go 14 4 0 3 1  (Pipeline + Movement + Kalman on Cam 0 + IDs)")
+	fmt.Println("  go run main.go 14 4 0 3 1 1 (Pipeline + Movement + Kalman on Cam 0 + IDs + Light Blur)")
 }
 
 func main() {
@@ -98,7 +107,7 @@ func main() {
 	trackingMethod := 0
 	if len(os.Args) >= 5 {
 		tr, err := strconv.Atoi(os.Args[4])
-		if err == nil && tr >= 0 && tr <= 5 {
+		if err == nil && tr >= 0 && tr <= 6 {
 			trackingMethod = tr
 		}
 	}
@@ -111,9 +120,17 @@ func main() {
 		}
 	}
 
+	smoothness := 0
+	if len(os.Args) >= 7 {
+		sm, err := strconv.Atoi(os.Args[6])
+		if err == nil && sm >= 0 && sm <= 4 {
+			smoothness = sm
+		}
+	}
+
 	fmt.Println("=== Video Processing Started ===")
-	fmt.Printf("Selected Method: %d | Threshold: %d | Tracker: %d | Camera: %s | IDs: %v\n",
-		method, thresholdMode, trackingMethod, device, showIDs)
+	fmt.Printf("Selected Method: %d | Threshold: %d | Tracker: %d | Camera: %s | IDs: %v | Smoothness: %d\n",
+		method, thresholdMode, trackingMethod, device, showIDs, smoothness)
 	fmt.Println("Press Ctrl+C to exit")
 
 	// Initialize input stream from webcam
@@ -131,6 +148,7 @@ func main() {
 
 	processor := logic.NewProcessor(width, height, bytesPP, bgDelta)
 	processor.ShowIDs = showIDs
+	processor.Smoothness = smoothness
 
 	frameCount := 0
 	fpsStart := time.Now()
@@ -146,6 +164,11 @@ func main() {
 
 		// Downsample to processing resolution (240p)
 		smallFrame := processor.Subsample3x(frame, inWidth, inHeight)
+
+		// Step 0: Apply Smoothness (Blur) if enabled
+		if processor.Smoothness > 0 {
+			smallFrame = processor.ApplyBlur(smallFrame)
+		}
 
 		// Step 1: Binary conversion with selected threshold mode
 		binaryFrame := processor.ProcessWithThresholdMode(smallFrame, thresholdMode)
