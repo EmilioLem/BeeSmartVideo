@@ -3,10 +3,9 @@ package main
 import (
 	"BeeSmartVideo/in"
 	"BeeSmartVideo/logic"
+	"BeeSmartVideo/menu"
 	"BeeSmartVideo/out"
 	"fmt"
-	"os"
-	"strconv"
 	"time"
 )
 
@@ -19,118 +18,20 @@ const (
 	bgDelta  = 0.005 // Background adaptation speed (~1 min at 30fps)
 )
 
-func printMenu() {
-	fmt.Println("\n=== BeeSmartVideo Usage ===")
-	fmt.Println("Usage: go run main.go [method] [mode] [cam] [tracking] [show_ids] [smoothness]")
-
-	fmt.Println("\n[1] Segmentation Methods (Counting):")
-	fmt.Println("  --- Category: Initial Methods ---")
-	fmt.Println("  1: K-Means Clustering (fixed K=7)")
-	fmt.Println("  2: Morphological Erosion + CCL")
-	fmt.Println("  3: Solidity Analysis (Convex Hull)")
-	fmt.Println("  4: Isoperimetric Quotient (Perimeter/Area)")
-	fmt.Println("  --- Category: Improved Methods ---")
-	fmt.Println("  5: Morphological Repair (Close/Fill/Open)")
-	fmt.Println("  6: Distance Transform + Watershed")
-	fmt.Println("  7: Convexity Defect Splitting")
-	fmt.Println("  8: Skeleton-Based Splitting")
-	fmt.Println("  9: Dynamic Area Estimation (Median)")
-	fmt.Println("  10: Shape Filtering (Descriptors)")
-	fmt.Println("  11: Neighbor Merge Pass")
-	fmt.Println("  12: Motion Direction Consistency")
-	fmt.Println("  13: Temporal Blob Stabilization")
-	fmt.Println("  14: Multi-Stage Segmentation Pipeline")
-
-	fmt.Println("\n[2] Processing Modes:")
-	fmt.Println("  --- Category: Single Frame Thresholding ---")
-	fmt.Println("  1: Static Threshold (128)")
-	fmt.Println("  2: Adaptive Two-Peak Threshold")
-	fmt.Println("  3: Otsu's Global Threshold")
-	fmt.Println("  --- Category: Frame-over-Time ---")
-	fmt.Println("  4: Basic Movement Layer (Running Average)")
-
-	fmt.Println("\n[3] Persistent Tracking Methods:")
-	fmt.Println("  0: No Tracking (Raw Detection Count)")
-	fmt.Println("  --- Category: Per-Frame ---")
-	fmt.Println("  1: Nearest-Centroid Tracker (Baseline)")
-	fmt.Println("  2: Hungarian Assignment (Optimal Matching)")
-	fmt.Println("  3: Kalman Filter (Prediction-Based)")
-	fmt.Println("  4: Multi-Feature Matching (Shape/Area)")
-	fmt.Println("  5: Motion-Gated Assignment (Plausibility)")
-	fmt.Println("  --- Category: Long-Term (Persistent) ---")
-	fmt.Println("  6: Deep Path Tracker (30+ Frames Persistence)")
-
-	fmt.Println("\n[4] Camera Index:")
-	fmt.Println("  0: /dev/video0 (Internal)")
-	fmt.Println("  2: /dev/video2 (External)")
-	fmt.Println("\n[5] ID Visualization:")
-	fmt.Println("  1: Enabled (Default)")
-	fmt.Println("  0: Disabled")
-	fmt.Println("\n[6] Smoothness (Blur):")
-	fmt.Println("  0: None (Default)")
-	fmt.Println("  1: Light (3x3)")
-	fmt.Println("  2: Medium (5x5)")
-	fmt.Println("  3: High (7x7)")
-	fmt.Println("  4: Aggressive (9x9)")
-
-	fmt.Println("\nExample:")
-	fmt.Println("  go run main.go 14 4 0 3 1 1 (Pipeline + Movement + Kalman on Cam 0 + IDs + Light Blur)")
-}
-
 func main() {
-	if len(os.Args) < 2 {
-		printMenu()
-		return
-	}
+	opts := menu.GetOptions()
 
-	method, err := strconv.Atoi(os.Args[1])
-	if err != nil || method < 1 || method > 14 {
-		fmt.Printf("Invalid method: %s\n", os.Args[1])
-		printMenu()
-		return
-	}
+	method := opts.Method
+	thresholdMode := opts.ThresholdMode
+	device := fmt.Sprintf("/dev/video%s", opts.DeviceIndex)
+	trackingMethod := opts.TrackingMethod
+	showIDs := opts.ShowIDs
+	smoothness := opts.Smoothness
 
-	thresholdMode := 1
-	if len(os.Args) >= 3 {
-		tm, err := strconv.Atoi(os.Args[2])
-		if err == nil && tm >= 1 && tm <= 4 {
-			thresholdMode = tm
-		}
-	}
-
-	deviceIndex := "0"
-	if len(os.Args) >= 4 {
-		deviceIndex = os.Args[3]
-	}
-	device := fmt.Sprintf("/dev/video%s", deviceIndex)
-
-	trackingMethod := 0
-	if len(os.Args) >= 5 {
-		tr, err := strconv.Atoi(os.Args[4])
-		if err == nil && tr >= 0 && tr <= 6 {
-			trackingMethod = tr
-		}
-	}
-
-	showIDs := true
-	if len(os.Args) >= 6 {
-		si, err := strconv.Atoi(os.Args[5])
-		if err == nil {
-			showIDs = si != 0
-		}
-	}
-
-	smoothness := 0
-	if len(os.Args) >= 7 {
-		sm, err := strconv.Atoi(os.Args[6])
-		if err == nil && sm >= 0 && sm <= 4 {
-			smoothness = sm
-		}
-	}
-
-	fmt.Println("=== Video Processing Started ===")
+	fmt.Println("\n=== Video Processing Started ===")
 	fmt.Printf("Selected Method: %d | Threshold: %d | Tracker: %d | Camera: %s | IDs: %v | Smoothness: %d\n",
 		method, thresholdMode, trackingMethod, device, showIDs, smoothness)
+	fmt.Println("Dropping first 25 frames for light stabilization...")
 	fmt.Println("Press Ctrl+C to exit")
 
 	// Initialize input stream from webcam
