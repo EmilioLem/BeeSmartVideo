@@ -5,6 +5,7 @@ import (
 	"BeeSmartVideo/logic"
 	"BeeSmartVideo/menu"
 	"BeeSmartVideo/out"
+	"BeeSmartVideo/out/webPageStats"
 	"fmt"
 	"time"
 )
@@ -34,6 +35,9 @@ func main() {
 	fmt.Println("Dropping first 25 frames for light stabilization...")
 	fmt.Println("Press Ctrl+C to exit")
 
+	// Start Stats Server
+	webPageStats.StartServer(8080)
+
 	// Initialize input stream from webcam
 	input, err := in.NewLiveInput(device, inWidth, inHeight)
 	if err != nil {
@@ -53,6 +57,7 @@ func main() {
 
 	frameCount := 0
 	fpsStart := time.Now()
+	lastFPS := 0.0
 
 	for {
 		frame, err := input.ReadFrame()
@@ -126,9 +131,22 @@ func main() {
 		if frameCount%10 == 0 {
 			up, down := processor.GetCounts()
 			elapsed := time.Since(fpsStart)
-			fps := 10.0 / elapsed.Seconds()
+			lastFPS = 10.0 / elapsed.Seconds()
 			fpsStart = time.Now()
-			fmt.Printf("\rFPS: %.1f | UP: %d | DOWN: %d | Active: %d | Blobs: %d   ", fps, up, down, activeCount, len(blobs))
+			fmt.Printf("\rFPS: %.1f | UP: %d | DOWN: %d | Active: %d | Blobs: %d   ", lastFPS, up, down, activeCount, len(blobs))
+
+			// Calculate average path length
+			avgPath := 0.0
+			if len(processor.Tracks) > 0 {
+				totalPath := 0
+				for _, t := range processor.Tracks {
+					totalPath += len(t.History)
+				}
+				avgPath = float64(totalPath) / float64(len(processor.Tracks))
+			}
+
+			// Update Web Dashboard Stats
+			webPageStats.UpdateStats(activeCount, up, down, avgPath, lastFPS)
 		}
 	}
 	fmt.Println("\n=== Video Processing Stopped ===")

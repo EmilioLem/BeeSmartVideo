@@ -76,6 +76,8 @@ To run the tool using the Erosion Technique with Otsu's Global Threshold on the 
 go run main.go 2 3 2
 ```
 
+> `guvcview` is useful to adjust the camera angle during testing.
+
 ## Project Structure
 
 - `main.go`: Entry point of the application, handles CLI arguments and the processing loop.
