@@ -7,6 +7,7 @@ import (
 	"BeeSmartVideo/out"
 	"BeeSmartVideo/out/webPageStats"
 	"fmt"
+	"math"
 	"time"
 )
 
@@ -135,18 +136,42 @@ func main() {
 			fpsStart = time.Now()
 			fmt.Printf("\rFPS: %.1f | UP: %d | DOWN: %d | Active: %d | Blobs: %d   ", lastFPS, up, down, activeCount, len(blobs))
 
-			// Calculate average path length
+			// Calculate average path length, speed, and distance
 			avgPath := 0.0
-			if len(processor.Tracks) > 0 {
+			avgSpeed := 0.0
+			avgDist := 0.0
+
+			numTracks := len(processor.Tracks)
+			if numTracks > 0 {
 				totalPath := 0
+				totalSpeed := 0.0
 				for _, t := range processor.Tracks {
 					totalPath += len(t.History)
+					// Speed = sqrt(vx^2 + vy^2)
+					speed := math.Sqrt(t.VX*t.VX + t.VY*t.VY)
+					totalSpeed += speed
 				}
-				avgPath = float64(totalPath) / float64(len(processor.Tracks))
+				avgPath = float64(totalPath) / float64(numTracks)
+				avgSpeed = totalSpeed / float64(numTracks)
+
+				// Average distance between all pairs
+				if numTracks > 1 {
+					totalDist := 0.0
+					count := 0
+					for i := 0; i < numTracks; i++ {
+						for j := i + 1; j < numTracks; j++ {
+							dx := float64(processor.Tracks[i].Centroid.X - processor.Tracks[j].Centroid.X)
+							dy := float64(processor.Tracks[i].Centroid.Y - processor.Tracks[j].Centroid.Y)
+							totalDist += math.Sqrt(dx*dx + dy*dy)
+							count++
+						}
+					}
+					avgDist = totalDist / float64(count)
+				}
 			}
 
 			// Update Web Dashboard Stats
-			webPageStats.UpdateStats(activeCount, up, down, avgPath, lastFPS)
+			webPageStats.UpdateStats(activeCount, up, down, avgPath, avgSpeed, avgDist, lastFPS)
 		}
 	}
 	fmt.Println("\n=== Video Processing Stopped ===")

@@ -13,6 +13,8 @@ type Stats struct {
 	CountUp       int     `json:"countUp"`
 	CountDown     int     `json:"countDown"`
 	AvgPathLength float64 `json:"avgPathLength"`
+	AvgSpeed      float64 `json:"avgSpeed"`
+	AvgDistance   float64 `json:"avgDistance"`
 	FPS           float64 `json:"fps"`
 }
 
@@ -22,7 +24,7 @@ var (
 )
 
 // UpdateStats updates the current global stats
-func UpdateStats(active, up, down int, avgPath, fps float64) {
+func UpdateStats(active, up, down int, avgPath, avgSpeed, avgDist, fps float64) {
 	statsMu.Lock()
 	defer statsMu.Unlock()
 	currentStats = Stats{
@@ -30,6 +32,8 @@ func UpdateStats(active, up, down int, avgPath, fps float64) {
 		CountUp:       up,
 		CountDown:     down,
 		AvgPathLength: avgPath,
+		AvgSpeed:      avgSpeed,
+		AvgDistance:   avgDist,
 		FPS:           fps,
 	}
 }
@@ -97,6 +101,54 @@ const dashboardHTML = `
             border-radius: 24px;
             border: 1px solid rgba(255, 255, 255, 0.1);
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .flow-container {
+            grid-column: span 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .flow-viz {
+            width: 60px;
+            height: 200px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 30px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .flow-up {
+            background: linear-gradient(to bottom, #2ecc71, #27ae60);
+            width: 100%;
+            transition: height 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .flow-down {
+            background: linear-gradient(to bottom, #e74c3c, #c0392b);
+            width: 100%;
+            transition: height 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .arrow {
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
         header {
@@ -174,9 +226,34 @@ const dashboardHTML = `
     </header>
 
     <div class="container">
+        <div class="flow-container">
+            <div class="stat-label" style="margin-bottom: 15px;">Flow Proportion</div>
+            <div class="flow-viz">
+                <div id="flowUp" class="flow-up"><span class="arrow">↑</span></div>
+                <div id="flowDown" class="flow-down"><span class="arrow">↓</span></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; width: 100%; margin-top: 15px; font-size: 0.8rem;">
+                <span style="color: #2ecc71">UP</span>
+                <span style="color: #e74c3c">DOWN</span>
+            </div>
+        </div>
         <div class="stat-card">
             <div class="stat-label">Active Bees</div>
             <div id="activeBees" class="stat-value">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Avg Speed</div>
+            <div id="avgSpeed" class="stat-value">0.0</div>
+            <div class="stat-label">px/frame</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Avg Distance</div>
+            <div id="avgDist" class="stat-value">0.0</div>
+            <div class="stat-label">pixels</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Avg Path Length</div>
+            <div id="avgPath" class="stat-value">0.0</div>
         </div>
         <div class="stat-card">
             <div class="stat-label">Count Up</div>
@@ -185,10 +262,6 @@ const dashboardHTML = `
         <div class="stat-card">
             <div class="stat-label">Count Down</div>
             <div id="countDown" class="stat-value">0</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label">Avg Path Length</div>
-            <div id="avgPath" class="stat-value">0.0</div>
         </div>
         <div class="stat-card">
             <div class="stat-label">Performance</div>
@@ -210,7 +283,21 @@ const dashboardHTML = `
                     document.getElementById('countUp').textContent = data.countUp;
                     document.getElementById('countDown').textContent = data.countDown;
                     document.getElementById('avgPath').textContent = data.avgPathLength.toFixed(1);
+                    document.getElementById('avgSpeed').textContent = data.avgSpeed.toFixed(1);
+                    document.getElementById('avgDist').textContent = data.avgDistance.toFixed(1);
                     document.getElementById('fps').textContent = data.fps.toFixed(1);
+
+                    // Update Flow Visualization
+                    const total = data.countUp + data.countDown;
+                    if (total > 0) {
+                        const upPerc = (data.countUp / total) * 100;
+                        const downPerc = (data.countDown / total) * 100;
+                        document.getElementById('flowUp').style.height = upPerc + '%';
+                        document.getElementById('flowDown').style.height = downPerc + '%';
+                    } else {
+                        document.getElementById('flowUp').style.height = '50%';
+                        document.getElementById('flowDown').style.height = '50%';
+                    }
                 })
                 .catch(err => console.error('Error fetching stats:', err));
         }
