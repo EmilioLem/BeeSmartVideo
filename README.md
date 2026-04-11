@@ -4,87 +4,100 @@ BeeSmartVideo is a real-time video processing tool written in Go, designed to co
 
 ## Features
 
-### Counting Methods
-The tool implements several computer vision techniques for object counting:
-1.  **K-Means Clustering**: Clusters white pixels to identify potential objects.
-2.  **Erosion Technique**: Uses morphological erosion to separate overlapping objects and count distinct blobs.
-3.  **Convex Area Classification**: Analyzes the convex hull of contours to classify objects based on area.
-4.  **Perimeter vs Area Comparison**: Uses the ratio of perimeter to area to distinguish objects.
+## Features
 
-### Threshold Modes
-To handle different lighting conditions, BeeSmartVideo supports multiple binarization strategies:
-1.  **Static Threshold**: Uses a fixed threshold value (128).
-2.  **Adaptive Peak Midpoint**: Automatically calculates a threshold based on pixel intensity sampling.
-3.  **Otsu's Global Threshold**: Implements the Otsu method for optimal automatic thresholding.
+### Segmentation Methods
+BeeSmartVideo provides 14 different algorithms for object detection and counting, selectable via the interactive menu:
+
+| ID | Method | Description |
+|---|---|---|
+| 1 | **K-Means Clustering** | Clusters white pixels to identify potential objects. |
+| 2 | **Erosion Technique** | Uses morphological erosion to separate overlapping objects. |
+| 3 | **Convex Hull Analysis** | Analyzes the convex area of contours to classify objects. |
+| 4 | **Perimeter vs Area** | Uses isoperimetric ratios to distinguish bees. |
+| 5 | **Morphological Repair** | Dilation/Erosion cycles to clean up noise and fragmented objects. |
+| 6 | **Watershed (Heuristic)** | Uses area-based splitting for clusters (bees touching each other). |
+| 7 | **Convexity Defect splitting** | Identifies "dents" in clusters to split multiple bees. |
+| 8 | **Skeleton-Based Splitting** | Analyzes aspect ratios to split elongated clusters. |
+| 9 | **Dynamic Area Estimation** | **Robust:** Uses median area of current blobs to estimate counts. |
+| 10 | **Shape Filtering** | Filters blobs based on geometric descriptors. |
+| 11 | **Neighbor Merge Pass** | Merges redundant detections based on proximity. |
+| 12 | **Motion Consistency** | Validates detections based on temporal direction. |
+| 13 | **Temporal Stabilization** | Reduces flicker by stabilizing blob persistence. |
+| 14 | **Multi-Stage Pipeline** | **Advanced:** Combined Morphological Repair + Dynamic Area Estimation. |
+
+### Processing Modes (Thresholding)
+1. **Static (128)**: Fast, fixed value. Best for controlled lighting.
+2. **Adaptive Peak Midpoint**: Automatically calculates threshold from image histogram.
+3. **Otsu's Global Threshold**: Standard robust method for separating foreground from background.
+4. **Basic Movement Layer**: **Powerful:** Detects only *moving* objects, ignoring the static background (like hive structure).
+
+---
+
+## Recommended Combinations 🐝
+
+With many settings to choose from, here are the most effective combinations for common scenarios:
+
+### 1. The "Gold Standard" (Most Accurate)
+*Best for general outdoor counting in varied light.*
+- **Method:** 14 (Multi-Stage Pipeline)
+- **Threshold:** 3 (Otsu's Global)
+- **Tracking:** 3 (Kalman Filter)
+- **Smoothness:** 2 (Medium)
+
+### 2. The "Busy Hive Entrance"
+*Best for avoiding false counts from the hive structure itself.*
+- **Method:** 9 (Dynamic Area Estimation)
+- **Threshold:** 4 (Basic Movement Layer)
+- **Tracking:** 2 (Hungarian Assignment)
+- **Smoothness:** 1 (Light)
+
+### 3. The "Low-Spec / High FPS"
+*Best for maximizing performance on older CPUs or internal webcams.*
+- **Method:** 2 (Erosion Technique)
+- **Threshold:** 1 (Static)
+- **Tracking:** 1 (Nearest-Centroid)
+- **Smoothness:** 0 (None)
+
+### 4. The "Night / Low-Contrast"
+*Best for Grainy or noisy video feeds.*
+- **Method:** 5 (Morphological Repair)
+- **Threshold:** 2 (Adaptive Peak)
+- **Tracking:** 3 (Kalman Filter)
+- **Smoothness:** 4 (Aggressive)
+
+---
 
 ## Prerequisites
 
 - **Go**: Version 1.25.5 or higher.
-- **FFMPEG**: Required for capturing live video from `/dev/video0` (internal) and `/dev/video2` (external).
-- **FFplay**: Required for displaying the processed video window.
-
-## Installation
-
-1.  Clone the repository:
-    ```bash
-    git clone [repository-url]
-    cd BeeSmartVideo
-    ```
-2.  Ensure FFMPEG and FFplay are installed on your system.
+- **FFMPEG**: Required for capturing live video.
+- **FFplay**: Required for real-time visualization.
 
 ## Usage
 
-You can run the tool using `go run main.go` or by using the provided executable.
+Run the tool using `go run main.go`. An interactive menu will appear to guide you through the settings.
 
-### Windows Users
-Run the `program.exe` file followed by the method number, threshold mode, and camera type:
-```cmd
-program.exe [method_number] [threshold_mode] [camera_index]
-```
-
-### Linux Users
-Run the `program` binary:
+### CLI Arguments
+You can also bypass the menu by passing arguments:
 ```bash
-./program [method_number] [threshold_mode] [camera_index]
+go run main.go [method] [threshold] [camera_index] [tracking_method] [show_ids] [smoothness]
 ```
 
-### From Source
-```bash
-go run main.go [method_number] [threshold_mode] [camera_index]
-```
-
-### Arguments
-
-- **method_number**:
-    - `1`: K-Means Clustering
-    - `2`: Erosion Technique
-    - `3`: Convex Area Classification
-    - `4`: Perimeter vs Area Comparison
-- **threshold_mode** (optional, default: 1):
-    - `1`: Static Threshold
-    - `2`: Adaptive Peak Midpoint
-    - `3`: Otsu's Global Threshold
-- **camera_index** (optional, default: `0`):
-    - `0`: Internal Built-in Camera (`/dev/video0`)
-    - `2`: External Camera (`/dev/video2`)
-    - (Any other number if your system recognizes the device at a different index)
-
-### Example
-
-To run the tool using the Erosion Technique with Otsu's Global Threshold on the external camera (index 2):
-```bash
-go run main.go 2 3 2
-```
-
-> `guvcview` is useful to adjust the camera angle during testing.
+- **method**: 1-14 (See table above)
+- **threshold**: 1-4
+- **camera_index**: e.g., 0 for `/dev/video0`
+- **tracking**: 0=None, 1=Centroid, 2=Hungarian, 3=Kalman, etc.
+- **show_ids**: true/false
+- **smoothness**: 0-4 (None to Aggressive)
 
 ## Project Structure
 
-- `main.go`: Entry point of the application, handles CLI arguments and the processing loop.
-- `logic/`: Contains the core image processing logic, including thresholding and counting algorithms.
-- `in/`: Handles video input stream via FFMPEG.
-- `out/`: Handles video output display via FFplay.
+- `main.go`: Entry point, handles the menu and processing loop.
+- `logic/`: Core image processing including 14 segmentation methods.
+- `menu/`: Interactive TUI settings menu using `huh`.
+- `in/`: FFMPEG capture wrapper.
+- `out/`: FFplay visualization and Web Dashboard.
 
 ## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License.
