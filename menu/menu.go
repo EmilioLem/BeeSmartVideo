@@ -84,9 +84,12 @@ func GetOptions() Options {
 			huh.NewInput().
 				Title("Camera Index").
 				Description("Device index (e.g. 0 for /dev/video0)").
-				Value(&opts.DeviceIndex).
-				HideIf(func() bool { return opts.Source != "live" }),
+				Value(&opts.DeviceIndex),
+		).WithHideFunc(func() bool {
+			return opts.Source != "live"
+		}),
 
+		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("Persistent Tracking").
 				Description("Long-term honeybee tracking").

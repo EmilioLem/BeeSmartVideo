@@ -1,5 +1,6 @@
 {
-  "method": 10,
+  "source": "./videoSamples/beesCrossingSampleVideo1min.mp4",
+  "method": 13,
   "threshold_mode": 4,
   "device_index": "2",
   "tracking_method": 3,
