@@ -27,10 +27,14 @@ type Blob struct {
 // Track represents a persistently tracked object
 type Track struct {
 	ID            int
+	Status        string // "tentative", "confirmed"
+	Hits          int    // Consecutive detections
 	Centroid      Point
 	History       []Point
 	LastSeenFrame int
 	Area          int
+	Solidity      float64 // Morphological memory
+	Ratio         float64 // Morphological memory
 	// Add velocity for Kalman-style prediction
 	VX, VY float64
 }
@@ -57,6 +61,9 @@ type Processor struct {
 	ShowIDs bool
 	// Smoothness level (0-4)
 	Smoothness int
+	// Export options
+	ExportData  bool
+	DatasetPath string
 	// Persistent buffers for optimization
 	visitedTemp []bool
 	binaryTemp  []byte

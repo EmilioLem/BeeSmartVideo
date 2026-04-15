@@ -1,6 +1,7 @@
 package main
 
 import (
+	"BeeSmartVideo/datasetgen"
 	"BeeSmartVideo/in"
 	"BeeSmartVideo/logic"
 	"BeeSmartVideo/menu"
@@ -62,6 +63,18 @@ func main() {
 	processor := logic.NewProcessor(width, height, bytesPP, bgDelta)
 	processor.ShowIDs = showIDs
 	processor.Smoothness = smoothness
+
+	var datagen *datasetgen.V1Generator
+	if opts.SaveData {
+		var errGen error
+		datagen, errGen = datasetgen.NewV1Generator("dataset")
+		if errGen != nil {
+			fmt.Printf("Warning: failed to start dataset mapping: %v\n", errGen)
+			datagen = nil // disable save data on error
+		} else {
+			defer datagen.Close()
+		}
+	}
 
 	frameCount := 0
 	fpsStart := time.Now()
@@ -127,6 +140,10 @@ func main() {
 		if trackingMethod > 0 {
 			activeCount = processor.ApplyTracking(blobs, trackingMethod)
 			processor.OverlayTracks(processedFrame)
+			
+			if datagen != nil {
+				datagen.ProcessFrameTracks(processor.Tracks, processor.FullResFrame, inWidth, inHeight, processor.FrameCount)
+			}
 		} else {
 			activeCount = len(blobs)
 		}

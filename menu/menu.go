@@ -19,6 +19,7 @@ type Options struct {
 	TrackingMethod int    `json:"tracking_method"`
 	ShowIDs        bool   `json:"show_ids"`
 	Smoothness     int    `json:"smoothness"`
+	SaveData       bool   `json:"save_data"`
 }
 
 func GetOptions() Options {
@@ -95,7 +96,7 @@ func GetOptions() Options {
 				Description("Long-term honeybee tracking").
 				Options(
 					huh.NewOption("None", "0"),
-					huh.NewOption("Nearest-Centroid (Baseline)", "1"),
+					huh.NewOption("Feature Consensus Tracking", "1"),
 					huh.NewOption("Hungarian Assignment", "2"),
 					huh.NewOption("Kalman Filter", "3"),
 					huh.NewOption("Multi-Feature Matching", "4"),
@@ -108,6 +109,11 @@ func GetOptions() Options {
 				Title("Show IDs").
 				Description("Overlay track IDs on video").
 				Value(&opts.ShowIDs),
+
+			huh.NewConfirm().
+				Title("Export AI Dataset").
+				Description("Save CSV and crop images to dataset/").
+				Value(&opts.SaveData),
 
 			huh.NewSelect[string]().
 				Title("Smoothness (Blur)").
@@ -148,6 +154,7 @@ func loadSettings() Options {
 		TrackingMethod: 0,
 		ShowIDs:        true,
 		Smoothness:     0,
+		SaveData:       false,
 	}
 
 	file, err := os.Open(settingsFile)

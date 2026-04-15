@@ -10,7 +10,7 @@ func (p *Processor) ApplyTracking(blobs []Blob, method int) int {
 
 	switch method {
 	case 1:
-		p.trackNearestCentroid(blobs)
+		p.trackFeatureConsensus(blobs)
 	case 2:
 		p.trackHungarianSimplified(blobs)
 	case 3:
@@ -34,22 +34,23 @@ func (p *Processor) ApplyTracking(blobs []Blob, method int) int {
 	return len(p.Tracks)
 }
 
-// 1. Nearest-Centroid Tracker (Baseline)
-func (p *Processor) trackNearestCentroid(blobs []Blob) {
+// 1. Feature Consensus Tracker (Contextual Cost Function)
+func (p *Processor) trackFeatureConsensus(blobs []Blob) {
 	matchedBlobs := make([]bool, len(blobs))
 
 	for i := range p.Tracks {
 		track := &p.Tracks[i]
-		bestDist := 50.0 // Threshold in pixels
+		bestCost := 0.6 // Rejection threshold for poor affinity matches
 		bestIdx := -1
 
 		for j, blob := range blobs {
 			if matchedBlobs[j] {
 				continue
 			}
-			dist := p.euclideanDistance(track.Centroid, blob.Centroid)
-			if dist < bestDist {
-				bestDist = dist
+			
+			cost := p.calculateAffinities(track, blob)
+			if cost < bestCost {
+				bestCost = cost
 				bestIdx = j
 			}
 		}
@@ -57,6 +58,10 @@ func (p *Processor) trackNearestCentroid(blobs []Blob) {
 		if bestIdx != -1 {
 			p.updateTrack(track, blobs[bestIdx])
 			matchedBlobs[bestIdx] = true
+		} else {
+			// Coasting: keep moving towards the predicted velocity naturally
+			track.Centroid.X += int(track.VX)
+			track.Centroid.Y += int(track.VY)
 		}
 	}
 
@@ -281,15 +286,51 @@ func (p *Processor) trackPersistent(blobs []Blob) {
 
 // --- Internal Track Management ---
 
+func (p *Processor) calculateAffinities(track *Track, blob Blob) float64 {
+	// Distancia Euclidiana (40%): Proximidad al centroide predicho.
+	predictedX := float64(track.Centroid.X) + track.VX
+	predictedY := float64(track.Centroid.Y) + track.VY
+	dist := math.Sqrt(math.Pow(predictedX-float64(blob.Centroid.X), 2) + math.Pow(predictedY-float64(blob.Centroid.Y), 2))
+	
+	distScore := dist / 60.0
+	if distScore > 1.0 { distScore = 1.0 }
+
+	// Consistencia de Velocidad (30%): Similitud entre el vector (VX, VY) previo y el actual
+	vxDiff := float64(blob.Centroid.X - track.Centroid.X) - track.VX
+	vyDiff := float64(blob.Centroid.Y - track.Centroid.Y) - track.VY
+	speedDiff := math.Sqrt(vxDiff*vxDiff + vyDiff*vyDiff)
+	
+	speedScore := speedDiff / 40.0
+	if speedScore > 1.0 { speedScore = 1.0 }
+
+	// Consistencia Morfológica (30%): Diferencia porcentual de Area y Solidity
+	areaDiff := math.Abs(float64(track.Area - blob.Area)) / math.Max(float64(track.Area), 1.0)
+	if areaDiff > 1.0 { areaDiff = 1.0 }
+	
+	solidityDiff := math.Abs(track.Solidity - blob.Solidity)
+	if solidityDiff > 1.0 { solidityDiff = 1.0 }
+	
+	morphScore := (areaDiff + solidityDiff) / 2.0
+
+	return (distScore * 0.4) + (speedScore * 0.3) + (morphScore * 0.3)
+}
+
 func (p *Processor) updateTrack(track *Track, blob Blob) {
 	oldY := track.Centroid.Y
 	midY := p.height / 2
 
+	track.Hits++
+	if track.Hits >= 5 {
+		track.Status = "confirmed"
+	}
+
 	// Crossover Detection (Horizontal line in middle)
-	if oldY >= midY && blob.Centroid.Y < midY {
-		p.CountUp++
-	} else if oldY <= midY && blob.Centroid.Y > midY {
-		p.CountDown++
+	if track.Status == "confirmed" {
+		if oldY >= midY && blob.Centroid.Y < midY {
+			p.CountUp++
+		} else if oldY <= midY && blob.Centroid.Y > midY {
+			p.CountDown++
+		}
 	}
 
 	// Calculate velocity
@@ -298,6 +339,8 @@ func (p *Processor) updateTrack(track *Track, blob Blob) {
 
 	track.Centroid = blob.Centroid
 	track.Area = blob.Area
+	track.Solidity = blob.Solidity
+	track.Ratio = blob.Ratio
 	track.LastSeenFrame = p.FrameCount
 	track.History = append(track.History, blob.Centroid)
 	if len(track.History) > 30 {
@@ -310,8 +353,12 @@ func (p *Processor) createNewTracks(blobs []Blob, matched []bool) {
 		if !matched[i] {
 			p.Tracks = append(p.Tracks, Track{
 				ID:            p.NextTrackID,
+				Status:        "tentative",
+				Hits:          1,
 				Centroid:      blob.Centroid,
 				Area:          blob.Area,
+				Solidity:      blob.Solidity,
+				Ratio:         blob.Ratio,
 				LastSeenFrame: p.FrameCount,
 				History:       []Point{blob.Centroid},
 			})
@@ -323,7 +370,11 @@ func (p *Processor) createNewTracks(blobs []Blob, matched []bool) {
 func (p *Processor) cleanupDeadTracks(maxMissing int) {
 	var activeTracks []Track
 	for _, track := range p.Tracks {
-		if p.FrameCount-track.LastSeenFrame < maxMissing {
+		limit := maxMissing
+		if track.Status == "confirmed" {
+			limit = 30 // Coasting para tracks confirmados
+		}
+		if p.FrameCount-track.LastSeenFrame < limit {
 			activeTracks = append(activeTracks, track)
 		}
 	}
