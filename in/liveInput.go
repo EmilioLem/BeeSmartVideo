@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"strings"
 )
 
 // LiveInput handles video input from a webcam using ffmpeg
@@ -15,23 +16,26 @@ type LiveInput struct {
 	frameSize int
 }
 
-// NewLiveInput creates a new live input stream from the specified video device
-func NewLiveInput(device string, width, height int) (*LiveInput, error) {
+// NewLiveInput creates a new live input stream from the specified video device or file
+func NewLiveInput(sourcePath string, width, height int) (*LiveInput, error) {
 	bytesPP := 3 // RGB24
 	frameSize := width * height * bytesPP
 
-	cmd := exec.Command(
-		"ffmpeg",
-		"-loglevel", "quiet",
-		"-f", "v4l2",
-		"-framerate", "30",
-		"-input_format", "mjpeg",
-		"-video_size", fmt.Sprintf("%dx%d", width, height),
-		"-i", device,
-		"-pix_fmt", "rgb24",
-		"-f", "rawvideo",
-		"-",
-	)
+	isDevice := strings.HasPrefix(sourcePath, "/dev/video")
+
+	args := []string{"-loglevel", "quiet"}
+	if isDevice {
+		args = append(args, "-f", "v4l2", "-framerate", "30", "-input_format", "mjpeg", "-video_size", fmt.Sprintf("%dx%d", width, height))
+	} else {
+		// Modo archivo: leer a velocidad real
+		args = append(args, "-re")
+	}
+
+	args = append(args, "-i", sourcePath)
+	// Forzar formato de salida para el procesamiento
+	args = append(args, "-s", fmt.Sprintf("%dx%d", width, height), "-pix_fmt", "rgb24", "-f", "rawvideo", "-")
+
+	cmd := exec.Command("ffmpeg", args...)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {

@@ -12,6 +12,7 @@ import (
 const settingsFile = "settings.json"
 
 type Options struct {
+	Source         string `json:"source"`
 	Method         int    `json:"method"`
 	ThresholdMode  int    `json:"threshold_mode"`
 	DeviceIndex    string `json:"device_index"`
@@ -23,6 +24,16 @@ type Options struct {
 func GetOptions() Options {
 	opts := loadSettings()
 
+	// Escanear videos disponibles
+	files, _ := os.ReadDir("./videoSamples")
+	var videoOptions []huh.Option[string]
+	for _, f := range files {
+		if !f.IsDir() {
+			videoOptions = append(videoOptions, huh.NewOption(f.Name(), "./videoSamples/"+f.Name()))
+		}
+	}
+	videoOptions = append(videoOptions, huh.NewOption("Live Webcam", "live"))
+
 	// Use temporary strings for huh selection if needed, or bind directly if types match
 	var methodStr string = strconv.Itoa(opts.Method)
 	var thresholdStr string = strconv.Itoa(opts.ThresholdMode)
@@ -31,6 +42,11 @@ func GetOptions() Options {
 
 	form := huh.NewForm(
 		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Input Source").
+				Options(videoOptions...).
+				Value(&opts.Source),
+
 			huh.NewSelect[string]().
 				Title("Segmentation Method").
 				Description("Select the counting algorithm").
@@ -68,7 +84,8 @@ func GetOptions() Options {
 			huh.NewInput().
 				Title("Camera Index").
 				Description("Device index (e.g. 0 for /dev/video0)").
-				Value(&opts.DeviceIndex),
+				Value(&opts.DeviceIndex).
+				HideIf(func() bool { return opts.Source != "live" }),
 
 			huh.NewSelect[string]().
 				Title("Persistent Tracking").
@@ -121,6 +138,7 @@ func GetOptions() Options {
 
 func loadSettings() Options {
 	defaultOpts := Options{
+		Source:         "live",
 		Method:         14,
 		ThresholdMode:  1,
 		DeviceIndex:    "0",
@@ -138,6 +156,9 @@ func loadSettings() Options {
 	var opts Options
 	if err := json.NewDecoder(file).Decode(&opts); err != nil {
 		return defaultOpts
+	}
+	if opts.Source == "" {
+		opts.Source = "live"
 	}
 	return opts
 }

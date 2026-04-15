@@ -25,22 +25,29 @@ func main() {
 
 	method := opts.Method
 	thresholdMode := opts.ThresholdMode
-	device := fmt.Sprintf("/dev/video%s", opts.DeviceIndex)
+	
+	var inputPath string
+	if opts.Source == "live" {
+		inputPath = fmt.Sprintf("/dev/video%s", opts.DeviceIndex)
+	} else {
+		inputPath = opts.Source
+	}
+	
 	trackingMethod := opts.TrackingMethod
 	showIDs := opts.ShowIDs
 	smoothness := opts.Smoothness
 
 	fmt.Println("\n=== Video Processing Started ===")
-	fmt.Printf("Selected Method: %d | Threshold: %d | Tracker: %d | Camera: %s | IDs: %v | Smoothness: %d\n",
-		method, thresholdMode, trackingMethod, device, showIDs, smoothness)
+	fmt.Printf("Selected Method: %d | Threshold: %d | Tracker: %d | Source: %s | IDs: %v | Smoothness: %d\n",
+		method, thresholdMode, trackingMethod, inputPath, showIDs, smoothness)
 	fmt.Println("Dropping first 25 frames for light stabilization...")
 	fmt.Println("Press Ctrl+C to exit")
 
 	// Start Stats Server
 	webPageStats.StartServer(8080)
 
-	// Initialize input stream from webcam
-	input, err := in.NewLiveInput(device, inWidth, inHeight)
+	// Initialize input stream from webcam or file
+	input, err := in.NewLiveInput(inputPath, inWidth, inHeight)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to initialize input: %v", err))
 	}

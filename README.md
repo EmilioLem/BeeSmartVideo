@@ -81,12 +81,12 @@ Run the tool using `go run main.go`. An interactive menu will appear to guide yo
 ### CLI Arguments
 You can also bypass the menu by passing arguments:
 ```bash
-go run main.go [method] [threshold] [camera_index] [tracking_method] [show_ids] [smoothness]
+go run main.go [method] [threshold] [source] [tracking_method] [show_ids] [smoothness]
 ```
 
 - **method**: 1-14 (See table above)
 - **threshold**: 1-4
-- **camera_index**: e.g., 0 for `/dev/video0`
+- **source**: Device index (e.g., 0) or path to a video file (e.g., ./videoSamples/bees.mp4)
 - **tracking**: 0=None, 1=Centroid, 2=Hungarian, 3=Kalman, etc.
 - **show_ids**: true/false
 - **smoothness**: 0-4 (None to Aggressive)
