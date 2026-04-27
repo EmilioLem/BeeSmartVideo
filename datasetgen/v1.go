@@ -78,7 +78,7 @@ func (g *V1Generator) SaveCrop(track logic.Track, frame int, fullFrame []byte, i
 	}
 
 	bytesPP := 3 // RGB24
-	cropSize := 64
+	cropSize := 192
 	halfSize := cropSize / 2
 
 	// Scale coordinates back to original resolution (assumes 3x downsampling)
