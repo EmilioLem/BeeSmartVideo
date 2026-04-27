@@ -1,7 +1,7 @@
 {
   "source": "./videoSamples/40secBeesWithPolen.mp4",
-  "method": 15,
-  "threshold_mode": 4,
+  "method": 14,
+  "threshold_mode": 10,
   "device_index": "2",
   "tracking_method": 3,
   "show_ids": true,

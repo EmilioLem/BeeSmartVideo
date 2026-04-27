@@ -156,8 +156,20 @@ func (p *Processor) ProcessWithThresholdMode(frame []byte, mode int) []byte {
 		// Category 2: Frame-over-time
 		// Use the configured bgDelta and a movement threshold of 30
 		return p.BasicMovementLayer(frame, 30)
+	case 5:
+		threshold = 118 // 128 - 10
+	case 6:
+		threshold = 108 // 128 - 20
+	case 7:
+		threshold = 98  // 128 - 30
+	case 8:
+		threshold = 138 // 128 + 10
+	case 9:
+		threshold = 148 // 128 + 20
+	case 10:
+		threshold = 158 // 128 + 30
 	default:
 		threshold = 128
-		return p.BinaryGrayscaleInverseWithThreshold(frame, threshold)
 	}
+	return p.BinaryGrayscaleInverseWithThreshold(frame, threshold)
 }

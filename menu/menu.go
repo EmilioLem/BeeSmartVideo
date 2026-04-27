@@ -79,6 +79,12 @@ func GetOptions() Options {
 				Description("Thresholding strategy").
 				Options(
 					huh.NewOption("Static (128)", "1"),
+					huh.NewOption("Static (118) [-10]", "5"),
+					huh.NewOption("Static (108) [-20]", "6"),
+					huh.NewOption("Static (98)  [-30]", "7"),
+					huh.NewOption("Static (138) [+10]", "8"),
+					huh.NewOption("Static (148) [+20]", "9"),
+					huh.NewOption("Static (158) [+30]", "10"),
 					huh.NewOption("Adaptive Two-Peak", "2"),
 					huh.NewOption("Otsu's Global", "3"),
 					huh.NewOption("Basic Movement Layer", "4"),

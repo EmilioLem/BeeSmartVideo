@@ -35,9 +35,11 @@ BeeSmartVideo provides 14 different algorithms for object detection and counting
 ### Processing Modes (Thresholding)
 
 1. **Static (128)**: Fast, fixed value. Best for controlled lighting.
-2. **Adaptive Peak Midpoint**: Automatically calculates threshold from image histogram.
-3. **Otsu's Global Threshold**: Standard robust method for separating foreground from background.
-4. **Basic Movement Layer**: **Powerful:** Detects only *moving* objects, ignoring the static background (like hive structure).
+2. **Static (118, 108, 98)**: Lighter static thresholds (-10, -20, -30).
+3. **Static (138, 148, 158)**: Darker static thresholds (+10, +20, +30).
+4. **Adaptive Peak Midpoint**: Automatically calculates threshold from image histogram.
+5. **Otsu's Global Threshold**: Standard robust method for separating foreground from background.
+6. **Basic Movement Layer**: **Powerful:** Detects only *moving* objects, ignoring the static background.
 
 ---
 
