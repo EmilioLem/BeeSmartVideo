@@ -133,6 +133,16 @@ func main() {
 			processedFrame, blobs = processor.ApplyTemporalStabilisation(binaryFrame)
 		case 14:
 			processedFrame, blobs = processor.ApplyAdvancedPipeline(binaryFrame)
+		case 15:
+			processedFrame, blobs = processor.ApplyHybridConvexPipeline(binaryFrame)
+		case 16:
+			processedFrame, blobs = processor.ApplyGeometricDensityFilter(binaryFrame)
+		case 17:
+			processedFrame, blobs = processor.ApplyStructuralSkeletonWatershed(binaryFrame)
+		case 18:
+			processedFrame, blobs = processor.ApplyTemporalConsistencyHybrid(binaryFrame)
+		case 19:
+			processedFrame, blobs = processor.ApplyPerfectBeeFinder(binaryFrame)
 		}
 
 		// Step 3: Apply Persistent Tracking

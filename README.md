@@ -26,6 +26,11 @@ BeeSmartVideo provides 14 different algorithms for object detection and counting
 | 12 | **Motion Consistency**         | Validates detections based on temporal direction.                            |
 | 13 | **Temporal Stabilization**     | Reduces flicker by stabilizing blob persistence.                             |
 | 14 | **Multi-Stage Pipeline**       | **Advanced:** Combined Morphological Repair + Dynamic Area Estimation. |
+| 15 | **Hybrid Convex Pipeline**     | **Mix:** Morphological Repair + Convex Hull Analysis + Area Estimation.      |
+| 16 | **Geometric Density Filter**   | **Mix:** Shape Filtering + Neighbor Merge + Dynamic Area Estimation.         |
+| 17 | **Structural Skeleton Split**  | **Mix:** Morphological Repair + Skeleton Splitting + Watershed Heuristic.    |
+| 18 | **Temporal Consistency Mix**   | **Mix:** Advanced Pipeline + Motion/Temporal filtering (Most Stable).        |
+| 19 | **Perfect Bee Finder**         | **Mix:** Strict Shape Filtering + Isoperimetric Quotient + Defect Splitting. |
 
 ### Processing Modes (Thresholding)
 

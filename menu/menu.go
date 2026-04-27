@@ -66,6 +66,11 @@ func GetOptions() Options {
 					huh.NewOption("Motion Direction Consistency", "12"),
 					huh.NewOption("Temporal Blob Stabilization", "13"),
 					huh.NewOption("Multi-Stage Pipeline", "14"),
+					huh.NewOption("Hybrid Convex Pipeline", "15"),
+					huh.NewOption("Geometric Density Filter", "16"),
+					huh.NewOption("Structural Skeleton Watershed", "17"),
+					huh.NewOption("Temporal Consistency Hybrid", "18"),
+					huh.NewOption("Perfect Bee Finder", "19"),
 				).
 				Value(&methodStr),
 
