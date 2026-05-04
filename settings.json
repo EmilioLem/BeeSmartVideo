@@ -1,10 +1,11 @@
 {
-  "source": "./videoSamples/40secBeesWithPolen.mp4",
+  "source": "./videoSamples/1.5minBeesCrossing.mp4",
   "method": 14,
-  "threshold_mode": 10,
+  "threshold_mode": 5,
   "device_index": "2",
   "tracking_method": 3,
   "show_ids": true,
   "smoothness": 0,
+  "aggressiveness": 3,
   "save_data": false
 }

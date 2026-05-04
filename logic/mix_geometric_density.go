@@ -55,8 +55,8 @@ func (p *Processor) ApplyGeometricDensityFilter(binaryFrame []byte) ([]byte, []B
 	}
 	sort.Ints(areas)
 	medianArea := float64(areas[len(areas)/2])
-	if medianArea < 300 {
-		medianArea = 450
+	if medianArea < 100 {
+		medianArea = p.GetTargetArea()
 	}
 
 	var finalBlobs []Blob

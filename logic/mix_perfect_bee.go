@@ -25,11 +25,12 @@ func (p *Processor) ApplyPerfectBeeFinder(binaryFrame []byte) ([]byte, []Blob) {
 		
 		// 4. Convexity Defect Analysis (using Solidity)
 		count := 1
+		target := p.GetTargetArea()
 		if b.Solidity < 0.5 {
 			// Deep "dents" suggest a split needed
-			count = int(math.Max(2, math.Round(float64(b.Area)/400.0)))
-		} else if b.Area > 800 {
-			count = int(math.Round(float64(b.Area) / 450.0))
+			count = int(math.Max(2, math.Round(float64(b.Area)/(target*0.88))))
+		} else if float64(b.Area) > p.GetMaxNormalArea() {
+			count = int(math.Round(float64(b.Area) / target))
 		}
 
 		for i := 0; i < count; i++ {

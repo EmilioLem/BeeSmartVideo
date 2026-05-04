@@ -18,8 +18,9 @@ type Options struct {
 	DeviceIndex    string `json:"device_index"`
 	TrackingMethod int    `json:"tracking_method"`
 	ShowIDs        bool   `json:"show_ids"`
-	Smoothness     int    `json:"smoothness"`
-	SaveData       bool   `json:"save_data"`
+	Smoothness     int     `json:"smoothness"`
+	Aggressiveness float64 `json:"aggressiveness"`
+	SaveData       bool    `json:"save_data"`
 }
 
 func GetOptions() Options {
@@ -40,6 +41,7 @@ func GetOptions() Options {
 	var thresholdStr string = strconv.Itoa(opts.ThresholdMode)
 	var trackingStr string = strconv.Itoa(opts.TrackingMethod)
 	var smoothnessStr string = strconv.Itoa(opts.Smoothness)
+	var aggressivenessStr string = fmt.Sprintf("%.1f", opts.Aggressiveness)
 
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -137,6 +139,19 @@ func GetOptions() Options {
 					huh.NewOption("Aggressive (9x9)", "4"),
 				).
 				Value(&smoothnessStr),
+
+			huh.NewSelect[string]().
+				Title("Effect Aggressiveness").
+				Description("Scaling of segmentation splitting (Target area)").
+				Options(
+					huh.NewOption("Very Lite (50%)", "0.5"),
+					huh.NewOption("Normal (100%)", "1.0"),
+					huh.NewOption("Strong (150%)", "1.5"),
+					huh.NewOption("Aggressive (200%)", "2.0"),
+					huh.NewOption("Very Aggressive (300%)", "3.0"),
+					huh.NewOption("Extreme (500%)", "5.0"),
+				).
+				Value(&aggressivenessStr),
 		),
 	)
 
@@ -151,6 +166,7 @@ func GetOptions() Options {
 	opts.ThresholdMode, _ = strconv.Atoi(thresholdStr)
 	opts.TrackingMethod, _ = strconv.Atoi(trackingStr)
 	opts.Smoothness, _ = strconv.Atoi(smoothnessStr)
+	opts.Aggressiveness, _ = strconv.ParseFloat(aggressivenessStr, 64)
 
 	saveSettings(opts)
 	return opts
@@ -165,6 +181,7 @@ func loadSettings() Options {
 		TrackingMethod: 0,
 		ShowIDs:        true,
 		Smoothness:     0,
+		Aggressiveness: 1.0,
 		SaveData:       false,
 	}
 

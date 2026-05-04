@@ -63,6 +63,7 @@ func main() {
 	processor := logic.NewProcessor(width, height, bytesPP, bgDelta)
 	processor.ShowIDs = showIDs
 	processor.Smoothness = smoothness
+	processor.Aggressiveness = opts.Aggressiveness
 
 	var datagen *datasetgen.V1Generator
 	if opts.SaveData {

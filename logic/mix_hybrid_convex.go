@@ -42,6 +42,7 @@ func (p *Processor) ApplyHybridConvexPipeline(binaryFrame []byte) ([]byte, []Blo
 
 		// 4. Hybrid Estimation: Adjust count based on Solidity (Convex Hull Analysis)
 		beesInBlob := 1
+		target := p.GetTargetArea()
 		// If blob is much larger than median, it's definitely a cluster
 		if float64(b.Area) > medianArea*1.2 {
 			// If it has low solidity, it's likely high-count cluster
@@ -50,6 +51,9 @@ func (p *Processor) ApplyHybridConvexPipeline(binaryFrame []byte) ([]byte, []Blo
 			} else {
 				beesInBlob = int(math.Max(1, math.Round(float64(b.Area)/medianArea)))
 			}
+		} else if float64(b.Area) > target*1.2 {
+			// Fallback to static target if median is unavailable or too low
+			beesInBlob = int(math.Max(1, math.Round(float64(b.Area)/target)))
 		}
 
 		for i := 0; i < beesInBlob; i++ {

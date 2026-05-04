@@ -61,6 +61,8 @@ type Processor struct {
 	ShowIDs bool
 	// Smoothness level (0-4)
 	Smoothness int
+	// Aggressiveness level (0.5 - 5.0)
+	Aggressiveness float64
 	// Export options
 	ExportData  bool
 	DatasetPath string
@@ -76,9 +78,10 @@ func NewProcessor(width, height, bytesPP int, bgDelta float64) *Processor {
 		width:       width,
 		height:      height,
 		bytesPP:     bytesPP,
-		bgDelta:     bgDelta,
-		NextTrackID: 1,
-		ShowIDs:     true, // Default to true
+		bgDelta:        bgDelta,
+		NextTrackID:    1,
+		ShowIDs:        true,
+		Aggressiveness: 1.0, // Default to 100%
 		// Pre-allocate buffers
 		visitedTemp: make([]bool, width*height),
 		binaryTemp:  make([]byte, width*height*bytesPP),
@@ -110,6 +113,24 @@ func (p *Processor) FindBlobs(frame []byte) [][]Point {
 		}
 	}
 	return blobs
+}
+
+// GetTargetArea returns a dynamically scaled area based on Aggressiveness.
+// Base area is 450.0. Higher aggressiveness results in smaller targets (more splitting).
+func (p *Processor) GetTargetArea() float64 {
+	if p.Aggressiveness <= 0 {
+		return 450.0
+	}
+	return 450.0 / p.Aggressiveness
+}
+
+// GetMaxNormalArea returns a dynamically scaled maximum single-bee area (used in watershed).
+// Base is 800.0.
+func (p *Processor) GetMaxNormalArea() float64 {
+	if p.Aggressiveness <= 0 {
+		return 800.0
+	}
+	return 800.0 / p.Aggressiveness
 }
 
 // ExtractBlobs converts raw point sets into Blob structs with metadata

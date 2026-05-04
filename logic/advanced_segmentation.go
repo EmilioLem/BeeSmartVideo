@@ -88,11 +88,11 @@ func (p *Processor) ApplyWatershed(binaryFrame []byte) ([]byte, []Blob) {
 	var finalBlobs []Blob
 
 	for _, b := range rawBlobs {
-		if b.Area < 800 { // Normal bee
+		if float64(b.Area) < p.GetMaxNormalArea() { // Normal bee
 			finalBlobs = append(finalBlobs, b)
 		} else {
 			// Cluster: split based on area
-			clusterCount := int(math.Round(float64(b.Area) / 450.0))
+			clusterCount := int(math.Round(float64(b.Area) / p.GetTargetArea()))
 			for i := 0; i < clusterCount; i++ {
 				finalBlobs = append(finalBlobs, b)
 			}
@@ -109,10 +109,11 @@ func (p *Processor) ApplyDefectSplitting(binaryFrame []byte) ([]byte, []Blob) {
 
 	for _, b := range rawBlobs {
 		beesInBlob := 1
-		if b.Solidity < 0.45 && b.Area > 600 {
+		target := p.GetTargetArea()
+		if b.Solidity < 0.45 && float64(b.Area) > target*1.33 {
 			beesInBlob = 2
 		} else {
-			beesInBlob = int(math.Max(1, math.Round(float64(b.Area)/450.0)))
+			beesInBlob = int(math.Max(1, math.Round(float64(b.Area)/target)))
 		}
 
 		for i := 0; i < beesInBlob; i++ {
@@ -133,7 +134,7 @@ func (p *Processor) ApplySkeletonSplitting(binaryFrame []byte) ([]byte, []Blob) 
 		aspectRatio := float64(w) / float64(h)
 		beesInBlob := 1
 		if aspectRatio > 2.5 || aspectRatio < 0.4 {
-			beesInBlob = int(math.Max(1, math.Round(float64(b.Area)/400.0)))
+			beesInBlob = int(math.Max(1, math.Round(float64(b.Area)/(p.GetTargetArea()*0.88))))
 		}
 
 		for i := 0; i < beesInBlob; i++ {
@@ -158,7 +159,7 @@ func (p *Processor) ApplyDynamicAreaEstimation(binaryFrame []byte) ([]byte, []Bl
 	sort.Ints(areas)
 	medianArea := float64(areas[len(areas)/2])
 	if medianArea < 100 {
-		medianArea = 450
+		medianArea = p.GetTargetArea()
 	}
 
 	var finalBlobs []Blob
@@ -179,7 +180,7 @@ func (p *Processor) ApplyShapeFiltering(binaryFrame []byte) ([]byte, []Blob) {
 
 	for _, b := range rawBlobs {
 		if b.Area > 50 {
-			beesInBlob := int(math.Max(1, math.Round(float64(b.Area)/450.0)))
+			beesInBlob := int(math.Max(1, math.Round(float64(b.Area)/p.GetTargetArea())))
 			for i := 0; i < beesInBlob; i++ {
 				finalBlobs = append(finalBlobs, b)
 			}
@@ -217,7 +218,7 @@ func (p *Processor) ApplyNeighborMerge(binaryFrame []byte) ([]byte, []Blob) {
 
 	var finalBlobs []Blob
 	for _, b := range filtered {
-		beesInBlob := int(math.Max(1, math.Round(float64(b.Area)/450.0)))
+		beesInBlob := int(math.Max(1, math.Round(float64(b.Area)/p.GetTargetArea())))
 		for i := 0; i < beesInBlob; i++ {
 			finalBlobs = append(finalBlobs, b)
 		}

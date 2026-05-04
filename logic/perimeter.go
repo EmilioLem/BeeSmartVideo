@@ -19,11 +19,12 @@ func (p *Processor) ApplyPerimeterArea(binaryFrame []byte) ([]byte, []Blob) {
 		b.Ratio = ratio
 
 		beesInBlob := 1
-		if b.Area > 500 {
+		target := p.GetTargetArea()
+		if float64(b.Area) > target*1.1 {
 			if ratio > 25 {
-				beesInBlob = int(math.Round(float64(b.Area) / 400.0))
+				beesInBlob = int(math.Round(float64(b.Area) / (target * 0.88)))
 			} else {
-				beesInBlob = int(math.Round(float64(b.Area) / 450.0))
+				beesInBlob = int(math.Round(float64(b.Area) / target))
 			}
 		}
 		if beesInBlob < 1 {

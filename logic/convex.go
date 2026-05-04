@@ -15,11 +15,12 @@ func (p *Processor) ApplyConvexHull(binaryFrame []byte) ([]byte, []Blob) {
 	for i, b := range rawBlobs {
 		// Estimate number of bees based on solidity
 		beesInBlob := 1
-		if b.Area > 600 { // Large blob
+		target := p.GetTargetArea()
+		if float64(b.Area) > target*1.33 { // Large blob
 			if b.Solidity < 0.5 {
-				beesInBlob = int(math.Round(float64(b.Area) / 400.0))
+				beesInBlob = int(math.Round(float64(b.Area) / (target * 0.88)))
 			} else {
-				beesInBlob = int(math.Round(float64(b.Area) / 450.0))
+				beesInBlob = int(math.Round(float64(b.Area) / target))
 			}
 		}
 		if beesInBlob < 1 {

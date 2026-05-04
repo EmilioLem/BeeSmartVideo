@@ -27,12 +27,13 @@ func (p *Processor) ApplyStructuralSkeletonWatershed(binaryFrame []byte) ([]byte
 		aspectRatio := float64(w) / float64(h)
 		
 		beesBySkeleton := 1
+		target := p.GetTargetArea()
 		if aspectRatio > 2.2 || aspectRatio < 0.45 {
-			beesBySkeleton = int(math.Max(1, math.Round(float64(b.Area)/400.0)))
+			beesBySkeleton = int(math.Max(1, math.Round(float64(b.Area)/(target*0.88))))
 		}
 
 		// 4. Watershed-style Area Analysis (Heuristic override)
-		beesByArea := int(math.Max(1, math.Round(float64(b.Area)/450.0)))
+		beesByArea := int(math.Max(1, math.Round(float64(b.Area)/target)))
 
 		// Take the maximum of both splitting heuristics
 		count := beesBySkeleton
