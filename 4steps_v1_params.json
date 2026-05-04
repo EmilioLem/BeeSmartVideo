@@ -1,0 +1,16 @@
+{
+  // --- Step 1: Preprocessing ---
+  "morph_repair_iterations": 1, // Number of Close/Open cycles to clean noise. [Min: 0, Max: 5, Suggested: 1]
+  "kmeans_k": 1, // Number of clusters for K-Means. [Min: 1, Max: 10, Suggested: 1 (essentially a filter if 1)]
+  // --- Step 2: Core Segmentation ---
+  "shape_filter_min_area": 50, // Minimum area (pixels) to consider a blob. [Min: 10, Max: 500, Suggested: 50]
+  // --- Step 3: Splitting ---
+  "target_area": 450.0, // Ideal area of a single bee for splitting logic. [Min: 100, Max: 1000, Suggested: 450]
+  "max_normal_area": 2000.0, // Area above which we always attempt to split. [Min: 400, Max: 2000, Suggested: 800]
+  "solidity_threshold": 0.45, // Solidity below which we assume multiple bees. [Min: 0.1, Max: 0.9, Suggested: 0.45]
+  "aspect_ratio_threshold": 2.5, // Aspect ratio above which we assume elongation/multiple bees. [Min: 1.5, Max: 5.0, Suggested: 2.5]
+  "erosion_iterations": 1, // Number of erosion passes for splitting. [Min: 0, Max: 3, Suggested: 1]
+  // --- Step 4: Validation ---
+  "merge_distance": 30.0, // Max distance (pixels) to merge neighboring blobs. [Min: 5, Max: 100, Suggested: 30]
+  "temporal_stability_weight": 0.5 // Weight for temporal consistency (0.0 = none). [Min: 0.0, Max: 1.0, Suggested: 0.5]
+}

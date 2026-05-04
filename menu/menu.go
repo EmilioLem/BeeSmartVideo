@@ -73,6 +73,7 @@ func GetOptions() Options {
 					huh.NewOption("Structural Skeleton Watershed", "17"),
 					huh.NewOption("Temporal Consistency Hybrid", "18"),
 					huh.NewOption("Perfect Bee Finder", "19"),
+					huh.NewOption("4 steps v1 (Configurable)", "20"),
 				).
 				Value(&methodStr),
 

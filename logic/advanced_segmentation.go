@@ -9,14 +9,10 @@ import (
 
 // erode performs a 3x3 erosion
 func (p *Processor) erode(binaryFrame []byte) []byte {
-	if len(p.generalTemp) != len(binaryFrame) {
-		p.generalTemp = make([]byte, len(binaryFrame))
-	}
-	eroded := p.generalTemp
-	// Reset buffer
-	for i := range eroded {
-		eroded[i] = 0
-	}
+	// Use a fresh buffer to avoid modifying the input if it's one of our temp buffers
+	eroded := make([]byte, len(binaryFrame))
+	copy(eroded, binaryFrame)
+
 	for y := 1; y < p.height-1; y++ {
 		for x := 1; x < p.width-1; x++ {
 			idx := (y*p.width + x) * p.bytesPP
@@ -28,10 +24,6 @@ func (p *Processor) erode(binaryFrame []byte) []byte {
 					eroded[idx] = 0
 					eroded[idx+1] = 0
 					eroded[idx+2] = 0
-				} else {
-					eroded[idx] = 255
-					eroded[idx+1] = 255
-					eroded[idx+2] = 255
 				}
 			}
 		}
@@ -41,24 +33,21 @@ func (p *Processor) erode(binaryFrame []byte) []byte {
 
 // dilate performs a 3x3 dilation
 func (p *Processor) dilate(binaryFrame []byte) []byte {
-	if len(p.binaryTemp) != len(binaryFrame) {
-		p.binaryTemp = make([]byte, len(binaryFrame))
-	}
-	dilated := p.binaryTemp
-	// Reset buffer
-	for i := range dilated {
-		dilated[i] = 0
-	}
+	dilated := make([]byte, len(binaryFrame))
+	copy(dilated, binaryFrame)
+
 	for y := 1; y < p.height-1; y++ {
 		for x := 1; x < p.width-1; x++ {
 			idx := (y*p.width + x) * p.bytesPP
-			if binaryFrame[((y-1)*p.width+x)*p.bytesPP] == 255 ||
-				binaryFrame[((y+1)*p.width+x)*p.bytesPP] == 255 ||
-				binaryFrame[(y*p.width+(x-1))*p.bytesPP] == 255 ||
-				binaryFrame[(y*p.width+(x+1))*p.bytesPP] == 255 {
-				dilated[idx] = 255
-				dilated[idx+1] = 255
-				dilated[idx+2] = 255
+			if binaryFrame[idx] == 0 {
+				if binaryFrame[((y-1)*p.width+x)*p.bytesPP] == 255 ||
+					binaryFrame[((y+1)*p.width+x)*p.bytesPP] == 255 ||
+					binaryFrame[(y*p.width+(x-1))*p.bytesPP] == 255 ||
+					binaryFrame[(y*p.width+(x+1))*p.bytesPP] == 255 {
+					dilated[idx] = 255
+					dilated[idx+1] = 255
+					dilated[idx+2] = 255
+				}
 			}
 		}
 	}

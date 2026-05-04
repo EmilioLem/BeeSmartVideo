@@ -65,6 +65,11 @@ func main() {
 	processor.Smoothness = smoothness
 	processor.Aggressiveness = opts.Aggressiveness
 
+	// Load 4 steps v1 config if available
+	if err := processor.LoadFourStepConfig("4steps_v1_params.json"); err != nil {
+		fmt.Printf("Warning: could not load 4steps_v1_params.json: %v\n", err)
+	}
+
 	var datagen *datasetgen.V1Generator
 	if opts.SaveData {
 		var errGen error
@@ -144,6 +149,8 @@ func main() {
 			processedFrame, blobs = processor.ApplyTemporalConsistencyHybrid(binaryFrame)
 		case 19:
 			processedFrame, blobs = processor.ApplyPerfectBeeFinder(binaryFrame)
+		case 20:
+			processedFrame, blobs = processor.ApplyFourStepPipeline(binaryFrame)
 		}
 
 		// Step 3: Apply Persistent Tracking

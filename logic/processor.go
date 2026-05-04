@@ -2,6 +2,9 @@ package logic
 
 import (
 	"strconv"
+	"encoding/json"
+	"os"
+	"regexp"
 )
 
 // Point represents a 2D point (pixel coordinate)
@@ -70,6 +73,22 @@ type Processor struct {
 	visitedTemp []bool
 	binaryTemp  []byte
 	generalTemp []byte
+	// 4 Steps V1 Config
+	FourStepParams FourStepConfig
+}
+
+// FourStepConfig holds parameters for the "4 steps v1" method
+type FourStepConfig struct {
+	MorphRepairIterations  int     `json:"morph_repair_iterations"`
+	KMeansK               int     `json:"kmeans_k"`
+	ShapeFilterMinArea    int     `json:"shape_filter_min_area"`
+	TargetArea            float64 `json:"target_area"`
+	MaxNormalArea         float64 `json:"max_normal_area"`
+	SolidityThreshold     float64 `json:"solidity_threshold"`
+	AspectRatioThreshold  float64 `json:"aspect_ratio_threshold"`
+	ErosionIterations     int     `json:"erosion_iterations"`
+	MergeDistance         float64 `json:"merge_distance"`
+	TemporalStabilityWeight float64 `json:"temporal_stability_weight"`
 }
 
 // NewProcessor creates a new processor instance
@@ -87,6 +106,26 @@ func NewProcessor(width, height, bytesPP int, bgDelta float64) *Processor {
 		binaryTemp:  make([]byte, width*height*bytesPP),
 		generalTemp: make([]byte, width*height*bytesPP),
 	}
+}
+
+// LoadFourStepConfig loads the parameters from 4steps_v1_params.json
+func (p *Processor) LoadFourStepConfig(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	// Remove comments from JSON
+	re := regexp.MustCompile(`(?m)^\s*//.*$|//.*$`)
+	data = re.ReplaceAll(data, []byte(""))
+
+	var config FourStepConfig
+	if err := json.Unmarshal(data, &config); err != nil {
+		return err
+	}
+
+	p.FourStepParams = config
+	return nil
 }
 
 // GetOriginalFrame returns the original frame before processing
