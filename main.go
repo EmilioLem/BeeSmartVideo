@@ -106,43 +106,9 @@ func main() {
 
 		switch method {
 		case 1:
-			processedFrame, blobs = processor.ApplyKMeans(binaryFrame, 7)
-		case 2:
-			processedFrame, blobs = processor.ApplyErosion(binaryFrame)
-		case 3:
-			processedFrame, blobs = processor.ApplyConvexHull(binaryFrame)
-		case 4:
-			processedFrame, blobs = processor.ApplyPerimeterArea(binaryFrame)
-		case 5:
-			processedFrame, blobs = processor.ApplyMorphRepair(binaryFrame)
-		case 6:
-			processedFrame, blobs = processor.ApplyWatershed(binaryFrame)
-		case 7:
-			processedFrame, blobs = processor.ApplyDefectSplitting(binaryFrame)
-		case 8:
-			processedFrame, blobs = processor.ApplySkeletonSplitting(binaryFrame)
-		case 9:
-			processedFrame, blobs = processor.ApplyDynamicAreaEstimation(binaryFrame)
-		case 10:
-			processedFrame, blobs = processor.ApplyShapeFiltering(binaryFrame)
-		case 11:
-			processedFrame, blobs = processor.ApplyNeighborMerge(binaryFrame)
-		case 12:
-			processedFrame, blobs = processor.ApplyMotionConsistency(binaryFrame)
-		case 13:
-			processedFrame, blobs = processor.ApplyTemporalStabilisation(binaryFrame)
-		case 14:
-			processedFrame, blobs = processor.ApplyAdvancedPipeline(binaryFrame)
-		case 15:
-			processedFrame, blobs = processor.ApplyHybridConvexPipeline(binaryFrame)
-		case 16:
-			processedFrame, blobs = processor.ApplyGeometricDensityFilter(binaryFrame)
-		case 17:
-			processedFrame, blobs = processor.ApplyStructuralSkeletonWatershed(binaryFrame)
-		case 18:
-			processedFrame, blobs = processor.ApplyTemporalConsistencyHybrid(binaryFrame)
-		case 19:
-			processedFrame, blobs = processor.ApplyPerfectBeeFinder(binaryFrame)
+			processedFrame, blobs = processor.ApplyEfficientFilteringV1(binaryFrame)
+		default:
+			processedFrame, blobs = processor.ApplyEfficientFilteringV1(binaryFrame)
 		}
 
 		// Step 3: Apply Persistent Tracking

@@ -44,33 +44,14 @@ func GetOptions() Options {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewSelect[string]().
-				Title("Input Source").
 				Options(videoOptions...).
 				Value(&opts.Source),
 
 			huh.NewSelect[string]().
-				Title("Segmentation Method").
-				Description("Select the counting algorithm").
+				Title("Main Processing Method").
+				Description("Select the processing algorithm").
 				Options(
-					huh.NewOption("K-Means Clustering", "1"),
-					huh.NewOption("Morphological Erosion", "2"),
-					huh.NewOption("Convex Hull Analysis", "3"),
-					huh.NewOption("Isoperimetric Quotient", "4"),
-					huh.NewOption("Morphological Repair", "5"),
-					huh.NewOption("Distance Transform + Watershed", "6"),
-					huh.NewOption("Convexity Defect Splitting", "7"),
-					huh.NewOption("Skeleton-Based Splitting", "8"),
-					huh.NewOption("Dynamic Area Estimation", "9"),
-					huh.NewOption("Shape Filtering", "10"),
-					huh.NewOption("Neighbor Merge Pass", "11"),
-					huh.NewOption("Motion Direction Consistency", "12"),
-					huh.NewOption("Temporal Blob Stabilization", "13"),
-					huh.NewOption("Multi-Stage Pipeline", "14"),
-					huh.NewOption("Hybrid Convex Pipeline", "15"),
-					huh.NewOption("Geometric Density Filter", "16"),
-					huh.NewOption("Structural Skeleton Watershed", "17"),
-					huh.NewOption("Temporal Consistency Hybrid", "18"),
-					huh.NewOption("Perfect Bee Finder", "19"),
+					huh.NewOption("Efficient filtering v1", "1"),
 				).
 				Value(&methodStr),
 
@@ -78,16 +59,17 @@ func GetOptions() Options {
 				Title("Processing Mode").
 				Description("Thresholding strategy").
 				Options(
-					huh.NewOption("Static (128)", "1"),
-					huh.NewOption("Static (118) [-10]", "5"),
+					huh.NewOption("Static (78) [-50]", "11"),
+					huh.NewOption("Static (88) [-40]", "12"),
+					huh.NewOption("Static (98) [-30]", "7"),
 					huh.NewOption("Static (108) [-20]", "6"),
-					huh.NewOption("Static (98)  [-30]", "7"),
+					huh.NewOption("Static (118) [-10]", "5"),
+					huh.NewOption("Static (128) [0]", "1"),
 					huh.NewOption("Static (138) [+10]", "8"),
 					huh.NewOption("Static (148) [+20]", "9"),
 					huh.NewOption("Static (158) [+30]", "10"),
-					huh.NewOption("Adaptive Two-Peak", "2"),
-					huh.NewOption("Otsu's Global", "3"),
-					huh.NewOption("Basic Movement Layer", "4"),
+					huh.NewOption("Static (168) [+40]", "13"),
+					huh.NewOption("Static (178) [+50]", "14"),
 				).
 				Value(&thresholdStr),
 		),
@@ -125,18 +107,6 @@ func GetOptions() Options {
 				Title("Export AI Dataset").
 				Description("Save CSV and crop images to dataset/").
 				Value(&opts.SaveData),
-
-			huh.NewSelect[string]().
-				Title("Smoothness (Blur)").
-				Description("Image pre-processing blur level").
-				Options(
-					huh.NewOption("None", "0"),
-					huh.NewOption("Light (3x3)", "1"),
-					huh.NewOption("Medium (5x5)", "2"),
-					huh.NewOption("High (7x7)", "3"),
-					huh.NewOption("Aggressive (9x9)", "4"),
-				).
-				Value(&smoothnessStr),
 		),
 	)
 
@@ -159,7 +129,7 @@ func GetOptions() Options {
 func loadSettings() Options {
 	defaultOpts := Options{
 		Source:         "live",
-		Method:         14,
+		Method:         1,
 		ThresholdMode:  1,
 		DeviceIndex:    "0",
 		TrackingMethod: 0,
