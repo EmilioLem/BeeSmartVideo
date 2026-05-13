@@ -7,16 +7,21 @@ import (
 // ApplyEfficientFilteringV1 implements the "Efficient filtering v1" processing method.
 func (p *Processor) ApplyEfficientFilteringV1(binaryFrame []byte) ([]byte, []Blob) {
 	// --- Settings (Tweakable in code) ---
-	
+
 	// Morphological Repair Settings
 	morphPasses := 2 // Number of passes for erosion/dilation
 	// Note: Kernel size is currently fixed at 3x3 in the implementation below.
 	// To change kernel size, the loop bounds would need adjustment.
-	
+
 	// Splitting/Merging Settings
-	divergenceThreshold := 0.40 // 40% divergence from average size
+	divergenceThreshold := 0.30 // 40% divergence from expected size
 	closenessThreshold := 30.0  // Distance threshold for merging close blobs
-	
+
+	// Expected average size of a bee in pixels.
+	// Since the camera is at a fixed position, this value should remain constant.
+	// Tweak this value manually until you find the best setting for your setup.
+	expectedBeeArea := 1050.0
+
 	// -------------------------------------
 
 	// Step 1: Binary thresholding is already done and passed as binaryFrame.
@@ -27,7 +32,7 @@ func (p *Processor) ApplyEfficientFilteringV1(binaryFrame []byte) ([]byte, []Blo
 	// Step 2: Morphological Repair (Erosion-Dilation cycles)
 	// We do 'morphPasses' of dilation followed by erosion (Closing)
 	// and then erosion followed by dilation (Opening) to clean noise.
-	
+
 	for i := 0; i < morphPasses; i++ {
 		workingFrame = p.customDilate(workingFrame)
 	}
@@ -49,22 +54,6 @@ func (p *Processor) ApplyEfficientFilteringV1(binaryFrame []byte) ([]byte, []Blo
 		return workingFrame, nil
 	}
 
-	// Calculate average size of detected blobs (amount of pixels per blob)
-	// We filter out very small blobs to avoid skewing the average with noise.
-	var totalArea int
-	var count int
-	for _, b := range rawBlobs {
-		if b.Area > 20 { // Noise threshold
-			totalArea += b.Area
-			count++
-		}
-	}
-	
-	averageSize := 450.0 // Default fallback if no valid blobs
-	if count > 0 {
-		averageSize = float64(totalArea) / float64(count)
-	}
-
 	// Step 4: Splitting/Merging
 	var finalBlobs []Blob
 	mergedFlags := make([]bool, len(rawBlobs))
@@ -75,35 +64,35 @@ func (p *Processor) ApplyEfficientFilteringV1(binaryFrame []byte) ([]byte, []Blo
 		}
 
 		b := rawBlobs[i]
-		
+
 		// Ignore very small noise
 		if b.Area < 10 {
 			continue
 		}
 
 		// Check for merging (if too small)
-		if float64(b.Area) < averageSize*(1.0-divergenceThreshold) {
+		if float64(b.Area) < expectedBeeArea*(1.0-divergenceThreshold) {
 			// Look for close neighbors to merge
 			mergedPoints := b.Points
 			mergedFlags[i] = true
-			
+
 			for j := i + 1; j < len(rawBlobs); j++ {
 				if mergedFlags[j] {
 					continue
 				}
 				nb := rawBlobs[j]
-				
+
 				// Calculate distance between centroids
 				dx := float64(b.Centroid.X - nb.Centroid.X)
 				dy := float64(b.Centroid.Y - nb.Centroid.Y)
 				dist := math.Sqrt(dx*dx + dy*dy)
-				
+
 				if dist < closenessThreshold {
 					mergedPoints = append(mergedPoints, nb.Points...)
 					mergedFlags[j] = true
 				}
 			}
-			
+
 			// Create a new merged blob
 			newBlobs := p.ExtractBlobs([][]Point{mergedPoints})
 			if len(newBlobs) > 0 {
@@ -113,13 +102,13 @@ func (p *Processor) ApplyEfficientFilteringV1(binaryFrame []byte) ([]byte, []Blo
 		}
 
 		// Check for splitting (if too big)
-		if float64(b.Area) > averageSize*(1.0+divergenceThreshold) {
+		if float64(b.Area) > expectedBeeArea*(1.0+divergenceThreshold) {
 			// Calculate expected number of bees
-			k := int(math.Round(float64(b.Area) / averageSize))
+			k := int(math.Round(float64(b.Area) / expectedBeeArea))
 			if k <= 1 {
 				k = 2 // At least split in 2 if it's large enough to trigger
 			}
-			
+
 			// Run K-means on the points of this blob
 			splitBlobs := p.splitBlobKMeans(b, k)
 			finalBlobs = append(finalBlobs, splitBlobs...)
@@ -141,6 +130,30 @@ func (p *Processor) ApplyEfficientFilteringV1(binaryFrame []byte) ([]byte, []Blo
 			outputFrame[idx] = color[0]
 			outputFrame[idx+1] = color[1]
 			outputFrame[idx+2] = color[2]
+		}
+	}
+
+	// Draw a representation of the expected bee size in the top left corner
+	// Area of ellipse = pi * a * b. Assuming aspect ratio of 2:1 (a = 2b).
+	// Area = 2 * pi * b^2 => b = sqrt(Area / (2 * pi))
+	semiMinor := math.Sqrt(expectedBeeArea / (2.0 * math.Pi))
+	semiMajor := 2.0 * semiMinor
+
+	centerX, centerY := 60, 30         // Top left corner with padding
+	refColor := [3]byte{255, 255, 255} // White color for the reference oval
+
+	for y := centerY - int(semiMinor) - 1; y <= centerY+int(semiMinor)+1; y++ {
+		for x := centerX - int(semiMajor) - 1; x <= centerX+int(semiMajor)+1; x++ {
+			if x >= 0 && x < p.width && y >= 0 && y < p.height {
+				dx := float64(x - centerX)
+				dy := float64(y - centerY)
+				if (dx*dx)/(semiMajor*semiMajor)+(dy*dy)/(semiMinor*semiMinor) <= 1.0 {
+					idx := (y*p.width + x) * p.bytesPP
+					outputFrame[idx] = refColor[0]
+					outputFrame[idx+1] = refColor[1]
+					outputFrame[idx+2] = refColor[2]
+				}
+			}
 		}
 	}
 
