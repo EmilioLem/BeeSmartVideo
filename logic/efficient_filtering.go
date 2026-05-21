@@ -14,7 +14,7 @@ func (p *Processor) ApplyEfficientFilteringV1(binaryFrame []byte) ([]byte, []Blo
 	// To change kernel size, the loop bounds would need adjustment.
 
 	// Splitting/Merging Settings
-	divergenceThreshold := 0.30 // 40% divergence from expected size
+	divergenceThreshold := 0.20 // 40% divergence from expected size
 	closenessThreshold := 30.0  // Distance threshold for merging close blobs
 
 	// Expected average size of a bee in pixels.
