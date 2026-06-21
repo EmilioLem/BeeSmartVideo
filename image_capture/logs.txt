@@ -1,0 +1,11 @@
+2026/06/08 10:50:21 =========================================
+2026/06/08 10:50:21 Starting webcam image capture service...
+2026/06/08 10:50:21 Device: /dev/video0
+2026/06/08 10:50:21 Interval: 10s
+2026/06/08 10:50:21 Images Directory: images
+2026/06/08 10:50:21 Log File: logs.txt
+2026/06/08 10:50:21 =========================================
+2026/06/08 10:50:21 Attempting capture: images/capture_20260608_105021.png...
+2026/06/08 10:50:23 SUCCESS: Saved images/capture_20260608_105021.png (937250 bytes) in 2.058000608s
+2026/06/08 10:50:31 Attempting capture: images/capture_20260608_105031.png...
+2026/06/08 10:50:33 SUCCESS: Saved images/capture_20260608_105031.png (924515 bytes) in 1.948493851s

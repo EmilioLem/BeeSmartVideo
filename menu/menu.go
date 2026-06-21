@@ -20,6 +20,7 @@ type Options struct {
 	ShowIDs        bool   `json:"show_ids"`
 	Smoothness     int    `json:"smoothness"`
 	SaveData       bool   `json:"save_data"`
+	LoopVideo      bool   `json:"loop_video"`
 }
 
 func GetOptions() Options {
@@ -107,6 +108,11 @@ func GetOptions() Options {
 				Title("Export AI Dataset").
 				Description("Save CSV and crop images to dataset/").
 				Value(&opts.SaveData),
+
+			huh.NewConfirm().
+				Title("Loop Video Playback").
+				Description("Repeat video file in loop (does not affect live source)").
+				Value(&opts.LoopVideo),
 		),
 	)
 
@@ -136,6 +142,7 @@ func loadSettings() Options {
 		ShowIDs:        true,
 		Smoothness:     0,
 		SaveData:       false,
+		LoopVideo:      false,
 	}
 
 	file, err := os.Open(settingsFile)

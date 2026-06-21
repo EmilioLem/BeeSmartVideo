@@ -83,6 +83,15 @@ func main() {
 	for {
 		frame, err := input.ReadFrame()
 		if err != nil {
+			if opts.LoopVideo && opts.Source != "live" {
+				// Restart video input for looping
+				input.Close()
+				input, err = in.NewLiveInput(inputPath, inWidth, inHeight)
+				if err != nil {
+					panic(fmt.Sprintf("Failed to restart input: %v", err))
+				}
+				continue
+			}
 			break
 		}
 
