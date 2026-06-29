@@ -1,0 +1,12 @@
+- [ ] Initialize Node.js project and install dependencies
+- [ ] Create folder structure (`server`, `utils`, `db`, `public`)
+- [ ] Implement DB schema and migration script
+- [ ] Implement video upload route and frame extraction using ffmpeg
+- [ ] Implement endpoints for listing videos, serving random frames, fetching annotations, submitting annotations, and metrics
+- [ ] Build frontend UI: `index.html`, `styles.css`, `app.js`
+- [ ] Implement click handling on canvas to collect points and submit
+- [ ] Implement metrics display and toggle for community annotations
+- [ ] Add simple automated tests with Jest and Supertest
+- [ ] Verify functionality manually
+- [ ] Refine UI aesthetics (dark mode, glassmorphism, micro‑animations)
+- [ ] Document setup and usage in README

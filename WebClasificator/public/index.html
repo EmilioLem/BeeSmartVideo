@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bee Annotation Community</title>
+  <link rel="stylesheet" href="styles.css" />
+  <meta name="description" content="Crowdsourced annotation tool for bee video frames. Annotate bee positions, view metrics, and help build a dataset." />
+  <!-- Google Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header>
+    <h1>🐝 Bee Annotation Community</h1>
+  </header>
+  <main class="container">
+    <section class="sidebar">
+      <div class="card">
+        <h2>Seleccionar video</h2>
+        <select id="videoSelect"></select>
+      </div>
+      <div class="card metrics">
+        <h2>Métricas</h2>
+        <p>Total de frames: <span id="totalFrames">0</span></p>
+        <p>Frames anotados: <span id="annotatedFrames">0</span></p>
+        <p>Puntos de abeja: <span id="totalPoints">0</span></p>
+      </div>
+      <div class="card toggle">
+        <label class="switch">
+          <input type="checkbox" id="overlayToggle" />
+          <span class="slider round"></span>
+        </label>
+        <span>Mostrar anotaciones de la comunidad</span>
+      </div>
+    </section>
+    <section class="content">
+      <div class="frame-card glass">
+        <canvas id="frameCanvas" width="800" height="600"></canvas>
+        <button id="nextBtn" class="fab">⏭️</button>
+        <button id="submitBtn" class="fab submit">💾 Enviar</button>
+      </div>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
