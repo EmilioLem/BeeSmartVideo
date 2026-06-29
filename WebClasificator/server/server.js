@@ -2,6 +2,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const { execFile } = require('child_process');
 const { extractFrames } = require('../utils/ffmpeg');
 const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
@@ -16,7 +17,7 @@ app.use('/videoSamples', express.static(path.join(__dirname, '../videoSamples'))
 const DB_PATH = path.join(__dirname, '../db/annotations.db');
 const db = new sqlite3.Database(DB_PATH);
 
-// Ensure DB tables exist (run init script if needed)
+// Ensure DB tables exist
 const initSql = `
 CREATE TABLE IF NOT EXISTS videos (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -32,7 +33,24 @@ CREATE TABLE IF NOT EXISTS annotations (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY(video_id) REFERENCES videos(id)
 );
+CREATE TABLE IF NOT EXISTS pre_annotations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  video_id INTEGER NOT NULL,
+  frame_name TEXT NOT NULL,
+  x REAL NOT NULL,
+  y REAL NOT NULL,
+  FOREIGN KEY(video_id) REFERENCES videos(id)
+);
+CREATE TABLE IF NOT EXISTS checked_frames (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  video_id INTEGER NOT NULL,
+  frame_name TEXT NOT NULL,
+  checked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(video_id, frame_name),
+  FOREIGN KEY(video_id) REFERENCES videos(id)
+);
 `;
+
 db.exec(initSql, (err) => {
   if (err) {
     console.error('DB init error:', err);
@@ -40,6 +58,44 @@ db.exec(initSql, (err) => {
     initializeVideos();
   }
 });
+
+// Run Go CLI pre-annotation model for video frames
+function runPreAnnotation(videoId, framesDir) {
+  return new Promise((resolve) => {
+    db.get('SELECT COUNT(*) as count FROM pre_annotations WHERE video_id = ?', [videoId], (err, row) => {
+      if (err || (row && row.count > 0)) {
+        return resolve();
+      }
+      console.log(`[Pre-Annotation] Running Go V1 model for video ID ${videoId}...`);
+      const preannotateBin = path.join(__dirname, '../../preannotate');
+      execFile(preannotateBin, ['-framesDir', framesDir], { maxBuffer: 50 * 1024 * 1024 }, (execErr, stdout, stderr) => {
+        if (execErr) {
+          console.error(`[Pre-Annotation] Failed for video ${videoId}:`, execErr, stderr);
+          return resolve();
+        }
+        try {
+          const results = JSON.parse(stdout);
+          db.serialize(() => {
+            const stmt = db.prepare('INSERT INTO pre_annotations (video_id, frame_name, x, y) VALUES (?, ?, ?, ?)');
+            for (const item of results) {
+              for (const pt of item.points) {
+                stmt.run(videoId, item.frameName, pt.x, pt.y);
+              }
+            }
+            stmt.finalize((finalErr) => {
+              if (finalErr) console.error('[Pre-Annotation] DB insert error:', finalErr);
+              else console.log(`[Pre-Annotation] Stored pre-annotations for video ID ${videoId}.`);
+              resolve();
+            });
+          });
+        } catch (parseErr) {
+          console.error('[Pre-Annotation] JSON parse error:', parseErr);
+          resolve();
+        }
+      });
+    });
+  });
+}
 
 // Automatically scan and discover videos on startup
 async function initializeVideos() {
@@ -69,7 +125,6 @@ async function initializeVideos() {
             const frameFiles = fs.readdirSync(framesDir).filter(f => f.match(/\.jpe?g$/i));
             if (frameFiles.length > 0) {
               needsExtraction = false;
-              // Ensure database has correct frame count
               db.run('UPDATE videos SET frame_count = ? WHERE id = ?', [frameFiles.length, videoId]);
               console.log(`[Auto-Discovery] Video "${file}" already indexed (ID: ${videoId}) with ${frameFiles.length} frames.`);
             }
@@ -87,6 +142,9 @@ async function initializeVideos() {
               console.error(`[Auto-Discovery] Frame extraction failed for ${file}:`, e);
             }
           }
+
+          // Trigger Go pre-annotation pipeline
+          await runPreAnnotation(videoId, framesDir);
           resolve();
         });
       });
@@ -97,22 +155,17 @@ async function initializeVideos() {
   }
 }
 
-
-
 // Helper to get video ID (create if new)
 function getOrCreateVideoId(filename, callback) {
   db.get('SELECT id FROM videos WHERE filename = ?', [filename], (err, row) => {
     if (err) return callback(err);
     if (row) return callback(null, row.id);
-    // Insert placeholder, frame_count will be updated after extraction
     db.run('INSERT INTO videos (filename, frame_count) VALUES (?, ?)', [filename, 0], function (err) {
       if (err) return callback(err);
       callback(null, this.lastID);
     });
   });
 }
-
-
 
 // Route: list videos
 app.get('/videos', (req, res) => {
@@ -122,16 +175,14 @@ app.get('/videos', (req, res) => {
   });
 });
 
-// Route: get random frame name for a video
-app.get('/random-frame/:videoId', (req, res) => {
+// Route: get ordered list of frame names for a video
+app.get('/video/:videoId/frames', (req, res) => {
   const { videoId } = req.params;
   const framesPath = path.join(__dirname, '../frames', String(videoId));
   fs.readdir(framesPath, (err, files) => {
     if (err) return res.status(404).json({ error: 'Frames not found' });
-    const imageFiles = files.filter(f => f.match(/\.jpe?g$/i));
-    if (!imageFiles.length) return res.status(404).json({ error: 'No images' });
-    const random = imageFiles[Math.floor(Math.random() * imageFiles.length)];
-    res.json({ frameName: random });
+    const imageFiles = files.filter(f => f.match(/\.jpe?g$/i)).sort();
+    res.json({ frames: imageFiles });
   });
 });
 
@@ -142,25 +193,73 @@ app.get('/frame/:videoId/:frameName', (req, res) => {
   res.sendFile(filePath);
 });
 
-// Submit annotations
-app.post('/annotations', (req, res) => {
-  const { videoId, frameName, points } = req.body; // points: [{x, y}]
-  if (!videoId || !frameName || !Array.isArray(points)) {
-    return res.status(400).json({ error: 'Invalid payload' });
-  }
-  const stmt = db.prepare('INSERT INTO annotations (video_id, frame_name, x, y) VALUES (?, ?, ?, ?)');
-  db.serialize(() => {
-    points.forEach(p => {
-      stmt.run(videoId, frameName, p.x, p.y);
-    });
-    stmt.finalize(err => {
+// Get detailed frame data (user annotations, pre-annotations, checked status)
+app.get('/video/:videoId/frame-data/:frameName', (req, res) => {
+  const { videoId, frameName } = req.params;
+
+  db.get('SELECT 1 FROM checked_frames WHERE video_id = ? AND frame_name = ?', [videoId, frameName], (err, checkedRow) => {
+    if (err) return res.status(500).json({ error: err.message });
+    const isChecked = !!checkedRow;
+
+    db.all('SELECT x, y FROM annotations WHERE video_id = ? AND frame_name = ?', [videoId, frameName], (err, userRows) => {
       if (err) return res.status(500).json({ error: err.message });
-      res.json({ status: 'ok' });
+
+      db.all('SELECT x, y FROM pre_annotations WHERE video_id = ? AND frame_name = ?', [videoId, frameName], (err, preRows) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        res.json({
+          frameName,
+          isChecked,
+          userPoints: userRows || [],
+          prePoints: preRows || []
+        });
+      });
     });
   });
 });
 
-// Get annotations for a specific frame (for overlay)
+// Legacy support & quick query
+app.get('/random-frame/:videoId', (req, res) => {
+  const { videoId } = req.params;
+  const framesPath = path.join(__dirname, '../frames', String(videoId));
+  fs.readdir(framesPath, (err, files) => {
+    if (err) return res.status(404).json({ error: 'Frames not found' });
+    const imageFiles = files.filter(f => f.match(/\.jpe?g$/i)).sort();
+    if (!imageFiles.length) return res.status(404).json({ error: 'No images' });
+    res.json({ frameName: imageFiles[0] });
+  });
+});
+
+// Submit/Check annotations for a frame
+const handleSaveAnnotations = (req, res) => {
+  const { videoId, frameName, points } = req.body; // points: [{x, y}]
+  if (!videoId || !frameName || !Array.isArray(points)) {
+    return res.status(400).json({ error: 'Invalid payload' });
+  }
+
+  db.serialize(() => {
+    // 1. Clear existing user annotations for this frame
+    db.run('DELETE FROM annotations WHERE video_id = ? AND frame_name = ?', [videoId, frameName]);
+
+    // 2. Insert updated points
+    const stmt = db.prepare('INSERT INTO annotations (video_id, frame_name, x, y) VALUES (?, ?, ?, ?)');
+    points.forEach(p => {
+      stmt.run(videoId, frameName, p.x, p.y);
+    });
+    stmt.finalize();
+
+    // 3. Mark frame as checked
+    db.run('INSERT OR REPLACE INTO checked_frames (video_id, frame_name) VALUES (?, ?)', [videoId, frameName], (err) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ status: 'ok' });
+    });
+  });
+};
+
+app.post('/annotations', handleSaveAnnotations);
+app.post('/annotations/submit', handleSaveAnnotations);
+
+// Get annotations for overlay
 app.get('/annotations/:videoId/:frameName', (req, res) => {
   const { videoId, frameName } = req.params;
   db.all('SELECT x, y FROM annotations WHERE video_id = ? AND frame_name = ?', [videoId, frameName], (err, rows) => {
@@ -169,10 +268,10 @@ app.get('/annotations/:videoId/:frameName', (req, res) => {
   });
 });
 
-// Metrics endpoint
+// Updated metrics endpoint (Checked frames focus)
 app.get('/metrics/:videoId', (req, res) => {
   const { videoId } = req.params;
-  db.get('SELECT COUNT(*) AS annotatedFrames FROM (SELECT DISTINCT frame_name FROM annotations WHERE video_id = ?) ', [videoId], (err, annotatedRow) => {
+  db.get('SELECT COUNT(*) AS checkedFrames FROM checked_frames WHERE video_id = ?', [videoId], (err, checkedRow) => {
     if (err) return res.status(500).json({ error: err.message });
     db.get('SELECT frame_count FROM videos WHERE id = ?', [videoId], (err, videoRow) => {
       if (err) return res.status(500).json({ error: err.message });
@@ -180,8 +279,8 @@ app.get('/metrics/:videoId', (req, res) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({
           totalFrames: videoRow ? videoRow.frame_count : 0,
-          annotatedFrames: annotatedRow.annotatedFrames,
-          totalPoints: pointsRow.totalPoints
+          checkedFrames: checkedRow ? checkedRow.checkedFrames : 0,
+          totalPoints: pointsRow ? pointsRow.totalPoints : 0
         });
       });
     });

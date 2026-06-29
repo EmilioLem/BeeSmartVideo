@@ -3,41 +3,64 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bee Annotation Community</title>
+  <title>Bee Classifier - AI Pre-Annotated Verification</title>
   <link rel="stylesheet" href="styles.css" />
-  <meta name="description" content="Crowdsourced annotation tool for bee video frames. Annotate bee positions, view metrics, and help build a dataset." />
+  <meta name="description" content="Sequential AI pre-annotated frame verification tool for bee video datasets." />
   <!-- Google Font -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </head>
 <body>
   <header>
-    <h1>🐝 Bee Annotation Community</h1>
+    <h1>🐝 Bee Classifier <span class="badge-ai">V1 AI-Assisted</span></h1>
   </header>
   <main class="container">
     <section class="sidebar">
       <div class="card">
-        <h2>Seleccionar video</h2>
+        <h2>Seleccionar Video</h2>
         <select id="videoSelect"></select>
       </div>
-      <div class="card metrics">
-        <h2>Métricas</h2>
-        <p>Total de frames: <span id="totalFrames">0</span></p>
-        <p>Frames anotados: <span id="annotatedFrames">0</span></p>
-        <p>Puntos de abeja: <span id="totalPoints">0</span></p>
+
+      <div class="card frame-info">
+        <h2>Progreso del Frame</h2>
+        <div class="progress-bar-container">
+          <div id="progressBar" class="progress-bar"></div>
+        </div>
+        <p class="frame-counter-text"><strong id="currentFrameNum">0</strong> / <span id="totalFrameNum">0</span></p>
+        <div id="frameStatusBadge" class="status-badge pending">⏳ Pendiente de revisión</div>
       </div>
-      <div class="card toggle">
-        <label class="switch">
-          <input type="checkbox" id="overlayToggle" />
-          <span class="slider round"></span>
-        </label>
-        <span>Mostrar anotaciones de la comunidad</span>
+
+      <div class="card metrics">
+        <h2>Métricas del Proyecto</h2>
+        <p>Total de frames: <strong id="totalFrames">0</strong></p>
+        <p>Frames revisados: <strong id="checkedFrames">0</strong></p>
+        <p>Abejas confirmadas: <strong id="totalPoints">0</strong></p>
+      </div>
+
+      <div class="card instructions">
+        <h2>Controles e Instrucciones</h2>
+        <ul>
+          <li>🎯 <strong>Clic en el canvas</strong> para agregar o quitar puntos.</li>
+          <li>💾 <strong>Guardar/Siguiente</strong> confirma el frame actual.</li>
+          <li>⌨️ <strong>Flechas ⬅️ ➡️</strong> para cambiar de frame.</li>
+          <li>⌨️ <strong>Enter / Espacio</strong> para marcar revisado y avanzar.</li>
+        </ul>
       </div>
     </section>
+
     <section class="content">
       <div class="frame-card glass">
-        <canvas id="frameCanvas" width="800" height="600"></canvas>
-        <button id="nextBtn" class="fab">⏭️</button>
-        <button id="submitBtn" class="fab submit">💾 Enviar</button>
+        <div class="canvas-header">
+          <span id="frameNameDisplay">Cargando frame...</span>
+          <span id="pointCountDisplay" class="point-count">0 abejas en este frame</span>
+        </div>
+        <div class="canvas-wrapper">
+          <canvas id="frameCanvas" width="800" height="600"></canvas>
+        </div>
+        <div class="control-bar">
+          <button id="prevBtn" class="btn btn-secondary" title="Frame anterior (Tecla ⬅️)">⏮️ Anterior</button>
+          <button id="submitBtn" class="btn btn-primary" title="Marcar revisado y avanzar (Enter)">✅ Marcar Revisado y Siguiente</button>
+          <button id="nextBtn" class="btn btn-secondary" title="Siguiente frame sin guardar (Tecla ➡️)">⏭️ Siguiente</button>
+        </div>
       </div>
     </section>
   </main>
