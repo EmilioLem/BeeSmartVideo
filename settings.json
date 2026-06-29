@@ -7,5 +7,6 @@
   "show_ids": true,
   "smoothness": 0,
   "save_data": false,
-  "loop_video": true
+  "loop_video": true,
+  "enable_telemetry": true
 }

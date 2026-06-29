@@ -9,3 +9,13 @@
 2026/06/08 10:50:23 SUCCESS: Saved images/capture_20260608_105021.png (937250 bytes) in 2.058000608s
 2026/06/08 10:50:31 Attempting capture: images/capture_20260608_105031.png...
 2026/06/08 10:50:33 SUCCESS: Saved images/capture_20260608_105031.png (924515 bytes) in 1.948493851s
+2026/06/22 14:16:51 =========================================
+2026/06/22 14:16:51 Starting webcam image capture service...
+2026/06/22 14:16:51 Device: /dev/video0
+2026/06/22 14:16:51 Interval: 10s
+2026/06/22 14:16:51 Images Directory: images
+2026/06/22 14:16:51 Log File: logs.txt
+2026/06/22 14:16:51 =========================================
+2026/06/22 14:16:51 Attempting capture: images/capture_20260622_141651.png...
+2026/06/22 14:16:52 SUCCESS: Saved images/capture_20260622_141651.png (382438 bytes) in 1.309516232s
+2026/06/22 14:16:57 Received signal: interrupt. Shutting down webcam capture service...

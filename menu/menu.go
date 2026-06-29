@@ -12,15 +12,16 @@ import (
 const settingsFile = "settings.json"
 
 type Options struct {
-	Source         string `json:"source"`
-	Method         int    `json:"method"`
-	ThresholdMode  int    `json:"threshold_mode"`
-	DeviceIndex    string `json:"device_index"`
-	TrackingMethod int    `json:"tracking_method"`
-	ShowIDs        bool   `json:"show_ids"`
-	Smoothness     int    `json:"smoothness"`
-	SaveData       bool   `json:"save_data"`
-	LoopVideo      bool   `json:"loop_video"`
+	Source          string `json:"source"`
+	Method          int    `json:"method"`
+	ThresholdMode   int    `json:"threshold_mode"`
+	DeviceIndex     string `json:"device_index"`
+	TrackingMethod  int    `json:"tracking_method"`
+	ShowIDs         bool   `json:"show_ids"`
+	Smoothness      int    `json:"smoothness"`
+	SaveData        bool   `json:"save_data"`
+	LoopVideo       bool   `json:"loop_video"`
+	EnableTelemetry bool   `json:"enable_telemetry"`
 }
 
 func GetOptions() Options {
@@ -113,6 +114,11 @@ func GetOptions() Options {
 				Title("Loop Video Playback").
 				Description("Repeat video file in loop (does not affect live source)").
 				Value(&opts.LoopVideo),
+
+			huh.NewConfirm().
+				Title("Enable MQTT Telemetry").
+				Description("Publish live counting telemetry to an MQTT broker").
+				Value(&opts.EnableTelemetry),
 		),
 	)
 
@@ -134,15 +140,16 @@ func GetOptions() Options {
 
 func loadSettings() Options {
 	defaultOpts := Options{
-		Source:         "live",
-		Method:         1,
-		ThresholdMode:  1,
-		DeviceIndex:    "0",
-		TrackingMethod: 0,
-		ShowIDs:        true,
-		Smoothness:     0,
-		SaveData:       false,
-		LoopVideo:      false,
+		Source:          "live",
+		Method:          1,
+		ThresholdMode:   1,
+		DeviceIndex:     "0",
+		TrackingMethod:  0,
+		ShowIDs:         true,
+		Smoothness:      0,
+		SaveData:        false,
+		LoopVideo:       false,
+		EnableTelemetry: false,
 	}
 
 	file, err := os.Open(settingsFile)

@@ -5,6 +5,7 @@ import (
 	"BeeSmartVideo/in"
 	"BeeSmartVideo/logic"
 	"BeeSmartVideo/menu"
+	"BeeSmartVideo/mqtt"
 	"BeeSmartVideo/out"
 	"BeeSmartVideo/out/webPageStats"
 	"fmt"
@@ -23,6 +24,15 @@ const (
 
 func main() {
 	opts := menu.GetOptions()
+
+	var mqttClient *mqtt.Client
+	if opts.EnableTelemetry {
+		var err error
+		mqttClient, err = mqtt.NewClient()
+		if err != nil {
+			fmt.Printf("Warning: failed to initialize MQTT client: %v\n", err)
+		}
+	}
 
 	method := opts.Method
 	thresholdMode := opts.ThresholdMode
@@ -181,6 +191,11 @@ func main() {
 
 			// Update Web Dashboard Stats
 			webPageStats.UpdateStats(activeCount, up, down, avgPath, avgSpeed, avgDist, lastFPS)
+
+			// Update MQTT Telemetry
+			if mqttClient != nil {
+				mqttClient.PublishStats(activeCount, up, down, avgPath, avgSpeed, avgDist, lastFPS)
+			}
 		}
 	}
 	fmt.Println("\n=== Video Processing Stopped ===")
