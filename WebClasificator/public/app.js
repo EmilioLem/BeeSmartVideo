@@ -59,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function loadVideo(videoId) {
     currentVideoId = videoId;
     updateMetrics();
+    updateStats();
 
     fetch(`/video/${videoId}/frames`)
       .then(res => res.json())
@@ -201,6 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
       .then(res => res.json())
       .then(() => {
         updateMetrics();
+        updateStats();
         if (currentFrameIndex < frames.length - 1) {
           loadFrameByIndex(currentFrameIndex + 1);
         } else {
@@ -219,6 +221,124 @@ document.addEventListener('DOMContentLoaded', () => {
         totalFramesSpan.textContent = data.totalFrames || 0;
         checkedFramesSpan.textContent = data.checkedFrames || 0;
         totalPointsSpan.textContent = data.totalPoints || 0;
+      })
+      .catch(console.error);
+  }
+
+  // Modal elements
+  const statsModal = document.getElementById('statsModal');
+  const closeStatsModal = document.getElementById('closeStatsModal');
+  const closeStatsModalBtn = document.getElementById('closeStatsModalBtn');
+  const downloadStatsBtn = document.getElementById('downloadStatsBtn');
+  let currentStatsData = null;
+
+  function openStatsModal(data) {
+    currentStatsData = data;
+    
+    document.getElementById('modalAccuracy').textContent = `${(data.accuracy * 100).toFixed(1)}%`;
+    document.getElementById('modalPrecision').textContent = `${(data.precision * 100).toFixed(1)}%`;
+    document.getElementById('modalRecall').textContent = `${(data.recall * 100).toFixed(1)}%`;
+    document.getElementById('modalF1').textContent = data.f1.toFixed(3);
+    
+    document.getElementById('matrixTP').textContent = data.tp;
+    document.getElementById('matrixFP').textContent = data.fp;
+    document.getElementById('matrixFN').textContent = data.fn;
+    document.getElementById('matrixTN').textContent = data.tn;
+    
+    statsModal.classList.add('show');
+  }
+
+  function hideStatsModal() {
+    statsModal.classList.remove('show');
+  }
+
+  if (closeStatsModal) closeStatsModal.addEventListener('click', hideStatsModal);
+  if (closeStatsModalBtn) closeStatsModalBtn.addEventListener('click', hideStatsModal);
+  window.addEventListener('click', (e) => {
+    if (e.target === statsModal) {
+      hideStatsModal();
+    }
+  });
+
+  if (downloadStatsBtn) {
+    downloadStatsBtn.addEventListener('click', () => {
+      if (!currentStatsData || !currentVideoId) return;
+      
+      const videoName = videoSelect.options[videoSelect.selectedIndex]?.text || 'unknown';
+      const report = {
+        video_id: currentVideoId,
+        video_filename: videoName,
+        date: new Date().toISOString(),
+        metrics: {
+          checked_frames: currentStatsData.totalChecked,
+          accuracy: currentStatsData.accuracy,
+          precision: currentStatsData.precision,
+          recall: currentStatsData.recall,
+          f1_score: currentStatsData.f1
+        },
+        confusion_matrix: {
+          true_positives: currentStatsData.tp,
+          false_positives: currentStatsData.fp,
+          false_negatives: currentStatsData.fn,
+          true_negatives: currentStatsData.tn
+        }
+      };
+      
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(report, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `AI_Evaluation_${videoName.replace(/\.[^/.]+$/, "")}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    });
+  }
+
+  // Update AI statistics
+  function updateStats() {
+    if (!currentVideoId) return;
+    const aiStatsCard = document.getElementById('aiStatsCard');
+    const aiStatsContent = document.getElementById('aiStatsContent');
+    
+    fetch(`/video/${currentVideoId}/statistics`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.totalChecked === 0) {
+          aiStatsContent.innerHTML = '<p class="stats-loading">Revisa al menos un frame para ver las estadísticas...</p>';
+          aiStatsCard.classList.remove('completed');
+          return;
+        }
+        
+        const accuracyPct = (data.accuracy * 100).toFixed(1);
+        const precisionPct = (data.precision * 100).toFixed(1);
+        const recallPct = (data.recall * 100).toFixed(1);
+        const f1Val = data.f1.toFixed(2);
+        
+        aiStatsContent.innerHTML = `
+          <div class="stats-summary">
+            <div class="stat-row"><span>Exactitud:</span> <span class="stat-val">${accuracyPct}%</span></div>
+            <div class="stat-row"><span>Precisión:</span> <span class="stat-val">${precisionPct}%</span></div>
+            <div class="stat-row"><span>Sensibilidad:</span> <span class="stat-val">${recallPct}%</span></div>
+            <div class="stat-row"><span>F1-Score:</span> <span class="stat-val">${f1Val}</span></div>
+            <button class="btn-view-report" id="viewReportBtn">📊 Ver Informe Detallado</button>
+          </div>
+        `;
+        
+        document.getElementById('viewReportBtn').addEventListener('click', () => {
+          openStatsModal(data);
+        });
+
+        // Highlight if completed
+        fetch(`/metrics/${currentVideoId}`)
+          .then(mRes => mRes.json())
+          .then(mData => {
+            if (mData.checkedFrames > 0 && mData.checkedFrames === mData.totalFrames) {
+              aiStatsCard.classList.add('completed');
+            } else {
+              aiStatsCard.classList.remove('completed');
+            }
+          })
+          .catch(console.error);
       })
       .catch(console.error);
   }

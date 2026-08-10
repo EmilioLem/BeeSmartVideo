@@ -36,6 +36,13 @@
         <p>Abejas confirmadas: <strong id="totalPoints">0</strong></p>
       </div>
 
+      <div class="card ai-stats-card" id="aiStatsCard">
+        <h2>Estadísticas de la IA</h2>
+        <div id="aiStatsContent">
+          <p class="stats-loading">Revisa al menos un frame para ver las estadísticas...</p>
+        </div>
+      </div>
+
       <div class="card instructions">
         <h2>Controles e Instrucciones</h2>
         <ul>
@@ -64,6 +71,80 @@
       </div>
     </section>
   </main>
+
+  <!-- Modal for Detailed AI Report -->
+  <div id="statsModal" class="modal">
+    <div class="modal-content glass">
+      <div class="modal-header">
+        <h2>📊 Informe de Evaluación del Modelo de IA</h2>
+        <span class="close-btn" id="closeStatsModal">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="metrics-grid">
+          <div class="metric-box">
+            <span class="metric-val" id="modalAccuracy">0.0%</span>
+            <span class="metric-lbl">Accuracy</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-val" id="modalPrecision">0.0%</span>
+            <span class="metric-lbl">Precision</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-val" id="modalRecall">0.0%</span>
+            <span class="metric-lbl">Recall</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-val" id="modalF1">0.00</span>
+            <span class="metric-lbl">F1-Score</span>
+          </div>
+        </div>
+
+        <div class="confusion-container">
+          <h3>Matriz de Confusión</h3>
+          <div class="confusion-matrix">
+            <div class="matrix-cell header-cell"></div>
+            <div class="matrix-cell header-cell">Real: Abeja</div>
+            <div class="matrix-cell header-cell">Real: Fondo</div>
+            
+            <div class="matrix-cell header-cell row-header">Pred: Abeja</div>
+            <div class="matrix-cell data-cell tp-cell">
+              <span class="cell-val" id="matrixTP">0</span>
+              <span class="cell-lbl">Verdaderos Positivos (TP)</span>
+            </div>
+            <div class="matrix-cell data-cell fp-cell">
+              <span class="cell-val" id="matrixFP">0</span>
+              <span class="cell-lbl">Falsos Positivos (FP)</span>
+            </div>
+            
+            <div class="matrix-cell header-cell row-header">Pred: Fondo</div>
+            <div class="matrix-cell data-cell fn-cell">
+              <span class="cell-val" id="matrixFN">0</span>
+              <span class="cell-lbl">Falsos Negativos (FN)</span>
+            </div>
+            <div class="matrix-cell data-cell tn-cell">
+              <span class="cell-val" id="matrixTN">0</span>
+              <span class="cell-lbl">Verdaderos Negativos (TN)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="stats-interpretation">
+          <h3>Interpretación de las Métricas</h3>
+          <ul>
+            <li>🎯 <strong>Verdaderos Positivos (TP):</strong> Abejas sugeridas por la IA que mantuviste.</li>
+            <li>❌ <strong>Falsos Positivos (FP):</strong> Sugerencias incorrectas de la IA que tuviste que eliminar (sobre-detección).</li>
+            <li>⚠️ <strong>Falsos Negativos (FN):</strong> Abejas reales omitidas por la IA que tuviste que añadir (sub-detección).</li>
+            <li>🌐 <strong>Verdaderos Negativos (TN):</strong> Regiones de fondo sin abejas correctamente ignoradas (evaluadas sobre una cuadrícula espacial).</li>
+          </ul>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="downloadStatsBtn" class="btn btn-secondary">💾 Descargar Reporte (JSON)</button>
+        <button id="closeStatsModalBtn" class="btn btn-primary">Entendido</button>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>
