@@ -93,22 +93,46 @@ With many settings to choose from, here are the most effective combinations for 
 
 ## Usage
 
-Run the tool using `go run main.go`. An interactive menu will appear to guide you through the settings.
+### Headless / Systemd Mode (Default)
 
-### CLI Arguments
-
-You can also bypass the menu by passing arguments:
+By default, launching `BeeSmartVideo` runs in **Headless CLI mode** (no interactive terminal setup required), making it ideal for background daemons, automated scripts, and `systemd` service integration:
 
 ```bash
-go run main.go [method] [threshold] [source] [tracking_method] [show_ids] [smoothness]
+go run main.go
+# or compile and run:
+go build -o program main.go
+./program
 ```
 
-- **method**: 1-14 (See table above)
-- **threshold**: 1-4
-- **source**: Device index (e.g., 0) or path to a video file (e.g., ./videoSamples/bees.mp4)
-- **tracking**: 0=None, 1=Centroid, 2=Hungarian, 3=Kalman, etc.
-- **show_ids**: true/false
-- **smoothness**: 0-4 (None to Aggressive)
+In headless mode, settings are loaded directly from `settings.json`. If `settings.json` is missing, hardcoded default settings defined in `menu/menu.go` (`DefaultOptions()`) are used.
+
+### Interactive TUI Menu (`huhForm`)
+
+To launch the interactive selection menu (powered by `huh`), run with the `huhForm` or `--tui` flag:
+
+```bash
+go run main.go huhForm
+# or
+go run main.go --tui
+```
+
+The interactive menu lets you visually select input video sources, thresholding modes, tracking algorithms, telemetry toggles, and dataset export settings, automatically updating `settings.json` upon completion.
+
+### Configuration Settings (`settings.json` & `menu/menu.go`)
+
+Hardcoded settings are fully commented in `menu/menu.go` and configured in `settings.json`:
+
+* `source`: Path to a video file (e.g. `./videoSamples/40secBeesWithPolen.mp4`) or `"live"` for camera input.
+* `device_index`: Camera device index when `source` is `"live"` (e.g. `"0"` for `/dev/video0`).
+* `method`: Processing algorithm (1 = Efficient filtering v1).
+* `threshold_mode`: Strategy ID (e.g. 1 = Static 128 [0], 5 = Static 118 [-10], 4 = Movement Layer).
+* `tracking_method`: Honeybee tracker ID (0 = None, 1 = Centroid, 2 = Hungarian, 3 = Kalman, etc.).
+* `show_ids`: `true`/`false` to overlay track IDs on video output.
+* `smoothness`: Blur intensity (0 = disabled).
+* `save_data`: `true`/`false` to export dataset CSV & cropped bee images to `dataset/`.
+* `loop_video`: `true`/`false` to loop video file playback.
+* `enable_telemetry`: `true`/`false` to publish live counts via MQTT.
+
 
 ### Export AI Dataset 
 
