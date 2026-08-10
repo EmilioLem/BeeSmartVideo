@@ -64,11 +64,15 @@ func main() {
 	}
 	defer input.Close()
 
-	output, err := out.NewLiveOutput(width, height)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to initialize output: %v", err))
+	var output *out.LiveOutput
+	if opts.IsInteractive {
+		var err error
+		output, err = out.NewLiveOutput(width, height)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to initialize output: %v", err))
+		}
+		defer output.Close()
 	}
-	defer output.Close()
 
 	processor := logic.NewProcessor(width, height, bytesPP, bgDelta)
 	processor.ShowIDs = showIDs
@@ -143,8 +147,10 @@ func main() {
 			activeCount = len(blobs)
 		}
 
-		if err := output.WriteFrame(processedFrame); err != nil {
-			break
+		if output != nil {
+			if err := output.WriteFrame(processedFrame); err != nil {
+				break
+			}
 		}
 
 		frameCount++

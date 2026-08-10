@@ -46,6 +46,9 @@ func NewLiveOutput(width, height int) (*LiveOutput, error) {
 
 // WriteFrame writes a single frame to the output display
 func (lo *LiveOutput) WriteFrame(frame []byte) error {
+	if lo == nil || lo.stdin == nil {
+		return nil
+	}
 	_, err := lo.stdin.Write(frame)
 	if err != nil {
 		return fmt.Errorf("failed to write frame: %w", err)
@@ -55,6 +58,9 @@ func (lo *LiveOutput) WriteFrame(frame []byte) error {
 
 // Close cleans up the output stream
 func (lo *LiveOutput) Close() error {
+	if lo == nil {
+		return nil
+	}
 	if lo.stdin != nil {
 		lo.stdin.Close()
 	}

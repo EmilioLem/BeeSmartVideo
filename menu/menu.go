@@ -61,6 +61,9 @@ type Options struct {
 
 	// EnableTelemetry: Publish live counting statistics over MQTT broker.
 	EnableTelemetry bool `json:"enable_telemetry"`
+
+	// IsInteractive is set at runtime depending on whether TUI mode was requested.
+	IsInteractive bool `json:"-"`
 }
 
 // DefaultOptions returns hardcoded fallback settings for headless CLI & systemd operation.
@@ -76,6 +79,7 @@ func DefaultOptions() Options {
 		SaveData:        false,
 		LoopVideo:       false,
 		EnableTelemetry: false,
+		IsInteractive:   false,
 	}
 }
 
@@ -132,8 +136,10 @@ func GetOptions() Options {
 // GetHeadlessOptions loads settings non-interactively without displaying a TUI menu.
 func GetHeadlessOptions() Options {
 	opts := LoadSettings()
+	opts.IsInteractive = false
 	fmt.Println("=== Mode: Headless CLI (systemd ready) ===")
 	fmt.Println("Configuration loaded from 'settings.json'.")
+	fmt.Println("Graphical output window (ffplay): Disabled")
 	fmt.Println("Tip: Pass 'huhForm' or '--tui' flag to open the interactive TUI menu.")
 	return opts
 }
@@ -142,6 +148,7 @@ func GetHeadlessOptions() Options {
 func GetInteractiveOptions() Options {
 	fmt.Println("=== Mode: Interactive TUI Menu ===")
 	opts := LoadSettings()
+	opts.IsInteractive = true
 
 	// Scan available video samples
 	files, _ := os.ReadDir("./videoSamples")

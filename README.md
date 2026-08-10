@@ -104,7 +104,7 @@ go build -o program main.go
 ./program
 ```
 
-In headless mode, settings are loaded directly from `settings.json`. If `settings.json` is missing, hardcoded default settings defined in `menu/menu.go` (`DefaultOptions()`) are used.
+In headless mode, settings are loaded directly from `settings.json` (or `DefaultOptions()`), and the graphical display window (`ffplay`) is disabled so the process can run purely headless without X11/GUI requirements. All frame processing, tracking, dataset saving, Web Dashboard stats, and MQTT telemetry continue to execute as normal.
 
 ### Interactive TUI Menu (`huhForm`)
 
