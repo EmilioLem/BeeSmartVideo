@@ -132,6 +132,7 @@ Hardcoded settings are fully commented in `menu/menu.go` and configured in `sett
 * `save_data`: `true`/`false` to export dataset CSV & cropped bee images to `dataset/`.
 * `loop_video`: `true`/`false` to loop video file playback.
 * `enable_telemetry`: `true`/`false` to publish live counts via MQTT.
+* `monitor_port`: HTTP port for the live monitoring dashboard (default `8080`).
 * `red_channel`: `true`/`false` to threshold on the red channel (see below). Default `true`.
 * `enable_aruco`: `true`/`false` to decode ArUco marker IDs with the Python worker (v2 only). Default `true`.
 * `aruco_dict`: dictionary the worker must match, e.g. `DICT_4X4_50`; empty = custom 10000x5 (v2 only).

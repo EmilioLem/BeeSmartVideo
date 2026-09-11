@@ -67,6 +67,10 @@ type Options struct {
 	// EnableTelemetry: Publish live counting statistics over MQTT broker.
 	EnableTelemetry bool `json:"enable_telemetry"`
 
+	// MonitorPort: HTTP port for the live monitoring dashboard served by
+	// webPageStats (http://localhost:<port>). Default 8080.
+	MonitorPort int `json:"monitor_port"`
+
 	// RedChannel: Threshold on the red channel directly instead of luminance.
 	// The hive entrance is illuminated with RED LEDs only, so the red channel
 	// carries the bee signal. Default true; disable only for white light.
@@ -102,6 +106,7 @@ func DefaultOptions() Options {
 		CropSize:        64,
 		LoopVideo:       false,
 		EnableTelemetry: false,
+		MonitorPort:     8080,
 		RedChannel:      true,
 		EnableArUco:     true,
 		ArUcoDict:       "DICT_4X4_50",
@@ -129,6 +134,9 @@ func LoadSettings() Options {
 	}
 	if opts.CropSize <= 0 {
 		opts.CropSize = DefaultOptions().CropSize
+	}
+	if opts.MonitorPort <= 0 {
+		opts.MonitorPort = DefaultOptions().MonitorPort
 	}
 	return opts
 }
@@ -195,6 +203,7 @@ func GetInteractiveOptions() Options {
 	var trackingStr string = strconv.Itoa(opts.TrackingMethod)
 	var smoothnessStr string = strconv.Itoa(opts.Smoothness)
 	var cropStr string = strconv.Itoa(opts.CropSize)
+	var monitorPortStr string = strconv.Itoa(opts.MonitorPort)
 
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -285,6 +294,11 @@ func GetInteractiveOptions() Options {
 				Description("Publish live counting telemetry to an MQTT broker").
 				Value(&opts.EnableTelemetry),
 
+			huh.NewInput().
+				Title("Monitoring Page Port").
+				Description("HTTP port for the live dashboard (default 8080)").
+				Value(&monitorPortStr),
+
 			huh.NewConfirm().
 				Title("Red-LED Mode (red channel)").
 				Description("Threshold on the red channel - hive entrance lit with red LEDs only").
@@ -313,6 +327,10 @@ func GetInteractiveOptions() Options {
 	opts.TrackingMethod, _ = strconv.Atoi(trackingStr)
 	opts.Smoothness, _ = strconv.Atoi(smoothnessStr)
 	opts.CropSize, _ = strconv.Atoi(cropStr)
+	opts.MonitorPort, _ = strconv.Atoi(monitorPortStr)
+	if opts.MonitorPort <= 0 {
+		opts.MonitorPort = DefaultOptions().MonitorPort
+	}
 
 	SaveSettings(opts)
 	return opts

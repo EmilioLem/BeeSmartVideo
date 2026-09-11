@@ -10,6 +10,7 @@
   "crop_size": 64,
   "loop_video": true,
   "enable_telemetry": false,
+  "monitor_port": 8080,
   "red_channel": true,
   "enable_aruco": true,
   "aruco_dict": "DICT_4X4_50"

@@ -121,6 +121,7 @@ Other runtime outputs:
 | `crop_size` | Exported crop side in **processing px** (full-res = x3). Default `64` = 192x192. |
 | `loop_video` | Loop file playback. |
 | `enable_telemetry` | Publish stats over MQTT. |
+| `monitor_port` | HTTP port for the live dashboard (`http://localhost:<port>`, default `8080`). |
 | `red_channel` | Threshold on the red channel (default `true`, see below). |
 | `enable_aruco` | Decode ArUco marker IDs on confirmed tracks (default `true`). |
 | `aruco_dict` | Dictionary the worker must use. Default `DICT_4X4_50` (sample tags are 4x4). Set `custom` for the old 10000-marker 5x5. |

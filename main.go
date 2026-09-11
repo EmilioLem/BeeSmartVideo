@@ -55,7 +55,7 @@ func main() {
 	fmt.Println("Press Ctrl+C to exit")
 
 	// Start Stats Server
-	webPageStats.StartServer(8080)
+	webPageStats.StartServer(opts.MonitorPort)
 
 	// Initialize input stream from webcam or file
 	input, err := in.NewLiveInput(inputPath, inWidth, inHeight)
