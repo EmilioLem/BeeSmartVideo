@@ -230,7 +230,8 @@ func decodeTrackMarkers(client *aruco.Client, p *logic.Processor, fullFrame []by
 
 	results, err := client.Decode(images)
 	if err != nil {
-		fmt.Printf("\nArUco decode error: %v\n", err)
+		// stderr keeps the two-line live status region intact.
+		fmt.Fprintf(os.Stderr, "ArUco decode error: %v\n", err)
 		return
 	}
 
@@ -250,6 +251,67 @@ func decodeTrackMarkers(client *aruco.Client, p *logic.Processor, fullFrame []by
 			break
 		}
 	}
+}
+
+// printStatus renders the two live status lines in place:
+//
+//	FPS: ... | UP: ... | Active: ... | Blobs: ...
+//	ArUco IDs: track 7=H1-0042, track 12=H3-0242
+//
+// It uses ANSI cursor movement (like the '\r' it replaces), so both lines
+// update every refresh. The first call skips the cursor-up because no status
+// has been printed yet.
+func printStatus(first *bool, fps float64, up, down, active, blobs int, tracks []logic.Track) {
+	line1 := fmt.Sprintf("FPS: %.1f | UP: %d | DOWN: %d | Active: %d | Blobs: %d", fps, up, down, active, blobs)
+	line2 := "ArUco IDs: " + formatMarkerIDs(tracks)
+
+	if *first {
+		fmt.Printf("\r%s\x1b[K\n", line1)
+		fmt.Printf("%s\x1b[K", line2)
+		*first = false
+		return
+	}
+	fmt.Printf("\x1b[1A\r%s\x1b[K\n", line1)
+	fmt.Printf("\r%s\x1b[K", line2)
+}
+
+// formatMarkerIDs lists the decoded ArUco labels with their track ids, e.g.
+// "track 7=H1-0042, track 12=H3-0242". It caps the line length so terminal
+// wrapping cannot break the two-line in-place update.
+func formatMarkerIDs(tracks []logic.Track) string {
+	const maxLen = 100
+
+	var b strings.Builder
+	shown := 0
+	total := 0
+	for _, t := range tracks {
+		if t.MarkerID < 0 {
+			continue
+		}
+		total++
+
+		label := t.MarkerLabel
+		if label == "" {
+			label = fmt.Sprintf("%d", t.MarkerID)
+		}
+		entry := fmt.Sprintf("track %d=%s", t.ID, label)
+		if b.Len() > 0 {
+			entry = ", " + entry
+		}
+		if b.Len()+len(entry) > maxLen {
+			continue
+		}
+		b.WriteString(entry)
+		shown++
+	}
+
+	if shown == 0 {
+		return "(none)"
+	}
+	if total > shown {
+		b.WriteString(fmt.Sprintf(" (+%d more)", total-shown))
+	}
+	return b.String()
 }
 
 // run executes the video pipeline for the resolved options. It is identical
@@ -324,6 +386,7 @@ func run(opts menu.Options, arucoClient *aruco.Client) {
 	frameCount := 0
 	fpsStart := time.Now()
 	lastFPS := 0.0
+	firstStatus := true
 
 	for {
 		frame, err := input.ReadFrame()
@@ -396,7 +459,7 @@ func run(opts menu.Options, arucoClient *aruco.Client) {
 			elapsed := time.Since(fpsStart)
 			lastFPS = 10.0 / elapsed.Seconds()
 			fpsStart = time.Now()
-			fmt.Printf("\rFPS: %.1f | UP: %d | DOWN: %d | Active: %d | Blobs: %d   ", lastFPS, up, down, activeCount, len(blobs))
+			printStatus(&firstStatus, lastFPS, up, down, activeCount, len(blobs), processor.Tracks)
 
 			// Calculate average path length, speed, and distance
 			avgPath := 0.0
