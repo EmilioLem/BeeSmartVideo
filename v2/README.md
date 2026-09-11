@@ -81,7 +81,7 @@ the form.
 | `--no-aruco` | Disable the ArUco worker for this run. |
 | `--aruco-script <path>` | Path to `ArUcoReader02.py` (default `./ArUcoReader02.py`). |
 | `--python <path>` | Python interpreter for the worker (default `python3`). |
-| `--debugImage` | Save the last 100 detected bee crops to `debugImages/` (troubleshooting). |
+| `--debugImage` | Save the last 500 detected bee crops to `debugImages/` (troubleshooting). |
 
 Any other argument is ignored, so a stray token never crashes the tool.
 
@@ -94,7 +94,7 @@ v2/
 ├── ArUcoReader02.py        # ArUco worker (called by the Go client)
 ├── aruco_dict_10000x5.npz  # cached marker dictionary (fast startup)
 ├── videoSamples -> ../videoSamples
-├── debugImages/            # --debugImage output (gitignored, last 100)
+├── debugImages/            # --debugImage output (gitignored, last 500)
 └── dataset/                # created when save_data = true
 ```
 
@@ -151,8 +151,8 @@ While a tagged bee is on screen this grows about 30 per second (one per frame).
 ## Debugging crops (`--debugImage`)
 
 Run `go run . --debugImage` to dump the crop of every confirmed track to
-`debugImages/`. Files are named `bee_000.jpg` .. `bee_099.jpg`; the index wraps,
-so the folder always contains only the **last 100** crops (in no particular
+`debugImages/`. Files are named `bee_000.jpg` .. `bee_499.jpg`; the index wraps,
+so the folder always contains only the **last 500** crops (in no particular
 order). Use it to check what the ArUco worker actually receives. The folder is
 gitignored.
 

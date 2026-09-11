@@ -55,7 +55,7 @@ const (
 	// Directory (relative to v2/) where --debugImage writes bee crops.
 	debugImageDir = "debugImages"
 	// Keep only the last N debug crops: the filename index wraps at this value.
-	debugImageRing = 100
+	debugImageRing = 500
 )
 
 func main() {
@@ -281,7 +281,7 @@ func hasArucoMarker(tracks []logic.Track) bool {
 }
 
 // saveDebugCrops writes the crop of every confirmed track to debugImages/ for
-// troubleshooting. Names cycle through bee_000.jpg .. bee_099.jpg so the folder
+// troubleshooting. Names cycle through bee_000.jpg .. bee_499.jpg so the folder
 // always holds only the most recent debugImageRing crops (unordered by design).
 func saveDebugCrops(p *logic.Processor, fullFrame []byte, cropSizeProcessing int, index *int) {
 	cropSizeFull := cropSizeProcessing * fullResScale
