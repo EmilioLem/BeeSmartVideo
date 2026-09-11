@@ -9,18 +9,18 @@ import (
 	"image/jpeg"
 )
 
-// EncodeCropJPEG extracts a square crop centered on a track centroid, encodes
-// it as JPEG and returns it base64-encoded, ready for the worker protocol.
+// CropJPEG extracts a square crop centered on a track centroid and returns the
+// JPEG bytes.
 //
 // fullFrame is the full-resolution RGB24 frame, frameW/frameH its size, cx/cy
 // the centroid in processing coordinates, scale the processing->full-res factor
 // (3 with the current pipeline) and cropSize the full-resolution side length.
-func EncodeCropJPEG(fullFrame []byte, frameW, frameH, cx, cy, scale, cropSize int) (string, error) {
+func CropJPEG(fullFrame []byte, frameW, frameH, cx, cy, scale, cropSize int) ([]byte, error) {
 	if fullFrame == nil {
-		return "", fmt.Errorf("aruco: nil frame")
+		return nil, fmt.Errorf("aruco: nil frame")
 	}
 	if cropSize <= 0 {
-		return "", fmt.Errorf("aruco: invalid crop size %d", cropSize)
+		return nil, fmt.Errorf("aruco: invalid crop size %d", cropSize)
 	}
 
 	const bytesPP = 3 // RGB24
@@ -51,7 +51,16 @@ func EncodeCropJPEG(fullFrame []byte, frameW, frameH, cx, cy, scale, cropSize in
 
 	var buf bytes.Buffer
 	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 90}); err != nil {
-		return "", fmt.Errorf("aruco: encode jpeg: %w", err)
+		return nil, fmt.Errorf("aruco: encode jpeg: %w", err)
 	}
-	return base64.StdEncoding.EncodeToString(buf.Bytes()), nil
+	return buf.Bytes(), nil
+}
+
+// EncodeCropJPEG is CropJPEG plus base64, ready for the worker protocol.
+func EncodeCropJPEG(fullFrame []byte, frameW, frameH, cx, cy, scale, cropSize int) (string, error) {
+	raw, err := CropJPEG(fullFrame, frameW, frameH, cx, cy, scale, cropSize)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(raw), nil
 }

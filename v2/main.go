@@ -52,6 +52,10 @@ const (
 	// How many frames a newly confirmed track is offered to the ArUco worker
 	// before it is marked as "no marker". Bounds the cost for untagged bees.
 	arucoMaxAttempts = 8
+	// Directory (relative to v2/) where --debugImage writes bee crops.
+	debugImageDir = "debugImages"
+	// Keep only the last N debug crops: the filename index wraps at this value.
+	debugImageRing = 100
 )
 
 func main() {
@@ -64,7 +68,16 @@ func main() {
 		defer arucoClient.Close()
 	}
 
-	run(opts, arucoClient)
+	if args.debugImage {
+		if err := os.MkdirAll(debugImageDir, 0755); err != nil {
+			fmt.Printf("Warning: debug images disabled: %v\n", err)
+			args.debugImage = false
+		} else {
+			fmt.Printf("Debug crops enabled: keeping the last %d bee crops in %s/\n", debugImageRing, debugImageDir)
+		}
+	}
+
+	run(opts, arucoClient, args.debugImage)
 }
 
 // anchorToV2Dir changes the working directory to this file's folder so v2
@@ -90,6 +103,7 @@ type v2Args struct {
 	noArUco     bool   // disable the ArUco worker for this run
 	arucoScript string // path to ArUcoReader02.py
 	python      string // python interpreter for the worker
+	debugImage  bool   // save the last N detected bee crops for troubleshooting
 }
 
 // parseArgs understands the whole v2 interface:
@@ -113,6 +127,8 @@ func parseArgs(argv []string) v2Args {
 			args.interactive = true
 		case arg == "--no-aruco" || arg == "-no-aruco":
 			args.noArUco = true
+		case arg == "--debugImage" || arg == "--debug-image" || arg == "-debugImage":
+			args.debugImage = true
 		case arg == "--aruco-script":
 			if i+1 < len(argv) {
 				i++
@@ -253,6 +269,32 @@ func decodeTrackMarkers(client *aruco.Client, p *logic.Processor, fullFrame []by
 	}
 }
 
+// saveDebugCrops writes the crop of every confirmed track to debugImages/ for
+// troubleshooting. Names cycle through bee_000.jpg .. bee_099.jpg so the folder
+// always holds only the most recent debugImageRing crops (unordered by design).
+func saveDebugCrops(p *logic.Processor, fullFrame []byte, cropSizeProcessing int, index *int) {
+	cropSizeFull := cropSizeProcessing * fullResScale
+	for i := range p.Tracks {
+		t := &p.Tracks[i]
+		if t.Status != "confirmed" {
+			continue
+		}
+		jpegBytes, err := aruco.CropJPEG(
+			fullFrame, inWidth, inHeight, t.Centroid.X, t.Centroid.Y, fullResScale, cropSizeFull,
+		)
+		if err != nil {
+			continue
+		}
+
+		name := fmt.Sprintf("bee_%03d.jpg", *index)
+		*index = (*index + 1) % debugImageRing
+		if err := os.WriteFile(filepath.Join(debugImageDir, name), jpegBytes, 0644); err != nil {
+			fmt.Fprintf(os.Stderr, "debug image write error: %v\n", err)
+			return
+		}
+	}
+}
+
 // printStatus renders the two live status lines in place:
 //
 //	FPS: ... | UP: ... | Active: ... | Blobs: ...
@@ -316,7 +358,7 @@ func formatMarkerIDs(tracks []logic.Track) string {
 
 // run executes the video pipeline for the resolved options. It is identical
 // to the original main.go loop and works for both CLI and huh + GUI modes.
-func run(opts menu.Options, arucoClient *aruco.Client) {
+func run(opts menu.Options, arucoClient *aruco.Client, debugImage bool) {
 	var mqttClient *mqtt.Client
 	if opts.EnableTelemetry {
 		var err error
@@ -387,6 +429,7 @@ func run(opts menu.Options, arucoClient *aruco.Client) {
 	fpsStart := time.Now()
 	lastFPS := 0.0
 	firstStatus := true
+	debugIndex := 0
 
 	for {
 		frame, err := input.ReadFrame()
@@ -437,6 +480,9 @@ func run(opts menu.Options, arucoClient *aruco.Client) {
 			// both the track id and the decoded marker id.
 			if arucoClient != nil {
 				decodeTrackMarkers(arucoClient, processor, frame, opts.CropSize)
+			}
+			if debugImage {
+				saveDebugCrops(processor, frame, opts.CropSize, &debugIndex)
 			}
 			processor.OverlayTracks(processedFrame)
 
