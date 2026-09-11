@@ -101,7 +101,10 @@ v2/
 
 Other runtime outputs:
 
-- Web dashboard: `http://localhost:8080`
+- Web dashboard: `http://localhost:<monitor_port>` (default `8080`)
+- Dashboard ArUco metrics: **Tags / Frame** (markers recognized in the most
+  recent frame that had a recognition; sparse, so it updates every few frames)
+  and **Tags (last 10s)** (rolling sum of recognized markers over 10 seconds).
 - Dataset CSV + crops: `v2/dataset/` (when `save_data` is enabled)
 
 ## Configuration

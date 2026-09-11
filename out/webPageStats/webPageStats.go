@@ -16,6 +16,11 @@ type Stats struct {
 	AvgSpeed      float64 `json:"avgSpeed"`
 	AvgDistance   float64 `json:"avgDistance"`
 	FPS           float64 `json:"fps"`
+	// TagsPerFrame is the number of ArUco tags recognized in the latest frame
+	// (0 on frames with no new recognition).
+	TagsPerFrame int `json:"tagsPerFrame"`
+	// TagsLast10s is the rolling sum of TagsPerFrame over the last 10 seconds.
+	TagsLast10s int `json:"tagsLast10s"`
 }
 
 var (
@@ -27,15 +32,24 @@ var (
 func UpdateStats(active, up, down int, avgPath, avgSpeed, avgDist, fps float64) {
 	statsMu.Lock()
 	defer statsMu.Unlock()
-	currentStats = Stats{
-		ActiveBees:    active,
-		CountUp:       up,
-		CountDown:     down,
-		AvgPathLength: avgPath,
-		AvgSpeed:      avgSpeed,
-		AvgDistance:   avgDist,
-		FPS:           fps,
-	}
+	// Assign field by field so the ArUco metrics (updated separately via
+	// UpdateTagStats) are preserved.
+	currentStats.ActiveBees = active
+	currentStats.CountUp = up
+	currentStats.CountDown = down
+	currentStats.AvgPathLength = avgPath
+	currentStats.AvgSpeed = avgSpeed
+	currentStats.AvgDistance = avgDist
+	currentStats.FPS = fps
+}
+
+// UpdateTagStats updates the ArUco recognition counters without touching the
+// rest of the dashboard metrics.
+func UpdateTagStats(tagsPerFrame, tagsLast10s int) {
+	statsMu.Lock()
+	defer statsMu.Unlock()
+	currentStats.TagsPerFrame = tagsPerFrame
+	currentStats.TagsLast10s = tagsLast10s
 }
 
 // StartServer starts the HTTP server on the specified port
@@ -242,6 +256,15 @@ const dashboardHTML = `
             <div id="activeBees" class="stat-value">0</div>
         </div>
         <div class="stat-card">
+            <div class="stat-label">Tags / Frame</div>
+            <div id="tagsPerFrame" class="stat-value">0</div>
+            <div class="stat-label">last recognition</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Tags (last 10s)</div>
+            <div id="tagsLast10s" class="stat-value">0</div>
+        </div>
+        <div class="stat-card">
             <div class="stat-label">Avg Speed</div>
             <div id="avgSpeed" class="stat-value">0.0</div>
             <div class="stat-label">px/frame</div>
@@ -280,6 +303,8 @@ const dashboardHTML = `
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('activeBees').textContent = data.activeBees;
+                    document.getElementById('tagsPerFrame').textContent = data.tagsPerFrame;
+                    document.getElementById('tagsLast10s').textContent = data.tagsLast10s;
                     document.getElementById('countUp').textContent = data.countUp;
                     document.getElementById('countDown').textContent = data.countDown;
                     document.getElementById('avgPath').textContent = data.avgPathLength.toFixed(1);

@@ -242,8 +242,9 @@ func startArUco(args v2Args, opts menu.Options) *aruco.Client {
 // decodeTrackMarkers sends the crops of newly confirmed tracks to the worker.
 // Each track is offered to the decoder at most arucoMaxAttempts times; a decoded
 // marker is stored on the track, and once the attempts run out the track is
-// marked MarkerNone so untagged bees are not retried forever.
-func decodeTrackMarkers(client *aruco.Client, p *logic.Processor, fullFrame []byte, cropSizeProcessing int) {
+// marked MarkerNone so untagged bees are not retried forever. It returns how
+// many markers were recognized in this frame.
+func decodeTrackMarkers(client *aruco.Client, p *logic.Processor, fullFrame []byte, cropSizeProcessing int) int {
 	cropSizeFull := cropSizeProcessing * fullResScale
 
 	var images []aruco.Image
@@ -262,16 +263,17 @@ func decodeTrackMarkers(client *aruco.Client, p *logic.Processor, fullFrame []by
 	}
 
 	if len(images) == 0 {
-		return
+		return 0
 	}
 
 	results, err := client.Decode(images)
 	if err != nil {
 		// stderr keeps the two-line live status region intact.
 		fmt.Fprintf(os.Stderr, "ArUco decode error: %v\n", err)
-		return
+		return 0
 	}
 
+	found := 0
 	for _, r := range results {
 		for i := range p.Tracks {
 			t := &p.Tracks[i]
@@ -282,12 +284,14 @@ func decodeTrackMarkers(client *aruco.Client, p *logic.Processor, fullFrame []by
 			if r.Found && r.MarkerID != nil {
 				t.MarkerID = *r.MarkerID
 				t.MarkerLabel = r.Label
+				found++
 			} else if t.MarkerAttempts >= arucoMaxAttempts {
 				t.MarkerID = logic.MarkerNone
 			}
 			break
 		}
 	}
+	return found
 }
 
 // hasArucoMarker reports whether at least one active track carries a decoded
@@ -465,6 +469,10 @@ func run(opts menu.Options, arucoClient *aruco.Client, debugImage bool) {
 	// Number of frames that contained at least one ArUco tag (grows ~30/s while
 	// a tagged bee is on screen).
 	arucoFrames := 0
+	// Timestamps of tags recognized in the last 10s, for the dashboard metric.
+	var tagEvents []time.Time
+	tagsThisFrame := 0
+	lastTagsPerFrame := 0
 
 	for {
 		frame, err := input.ReadFrame()
@@ -514,7 +522,16 @@ func run(opts menu.Options, arucoClient *aruco.Client, debugImage bool) {
 			// Step 4: Decode ArUco markers on newly confirmed tracks, then draw
 			// both the track id and the decoded marker id.
 			if arucoClient != nil {
-				decodeTrackMarkers(arucoClient, processor, frame, opts.CropSize)
+				tagsThisFrame = decodeTrackMarkers(arucoClient, processor, frame, opts.CropSize)
+				if tagsThisFrame > 0 {
+					// Remember the latest recognition count: recognition is
+					// sparse, so this is what the dashboard shows per frame.
+					lastTagsPerFrame = tagsThisFrame
+					now := time.Now()
+					for i := 0; i < tagsThisFrame; i++ {
+						tagEvents = append(tagEvents, now)
+					}
+				}
 			}
 			if debugImage {
 				saveDebugCrops(processor, frame, opts.CropSize, &debugIndex)
@@ -581,6 +598,13 @@ func run(opts menu.Options, arucoClient *aruco.Client, debugImage bool) {
 
 			// Update Web Dashboard Stats
 			webPageStats.UpdateStats(activeCount, up, down, avgPath, avgSpeed, avgDist, lastFPS)
+
+			// ArUco metrics: tags recognized this frame + rolling 10s total.
+			cutoff := time.Now().Add(-10 * time.Second)
+			for len(tagEvents) > 0 && tagEvents[0].Before(cutoff) {
+				tagEvents = tagEvents[1:]
+			}
+			webPageStats.UpdateTagStats(lastTagsPerFrame, len(tagEvents))
 
 			// Update MQTT Telemetry
 			if mqttClient != nil {
