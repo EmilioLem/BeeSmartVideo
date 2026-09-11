@@ -11,5 +11,6 @@
   "loop_video": true,
   "enable_telemetry": false,
   "red_channel": false,
-  "enable_aruco": true
+  "enable_aruco": true,
+  "aruco_dict": "DICT_4X4_50"
 }

@@ -80,6 +80,7 @@ the form.
 | `<path>` | Shorthand for `--source <path>`. |
 | `--no-aruco` | Disable the ArUco worker for this run. |
 | `--aruco-script <path>` | Path to `ArUcoReader02.py` (default `./ArUcoReader02.py`). |
+| `--aruco-dict <name>` | Worker dictionary, e.g. `DICT_4X4_50` (default: custom 10000x5). |
 | `--python <path>` | Python interpreter for the worker (default `python3`). |
 | `--debugImage` | Save the last 500 detected bee crops to `debugImages/` (troubleshooting). |
 
@@ -122,6 +123,7 @@ Other runtime outputs:
 | `enable_telemetry` | Publish stats over MQTT. |
 | `red_channel` | Threshold on the red channel (default `true`, see below). |
 | `enable_aruco` | Decode ArUco marker IDs on confirmed tracks (default `true`). |
+| `aruco_dict` | Dictionary the worker must use. Default `DICT_4X4_50` (sample tags are 4x4). Set `custom` for the old 10000-marker 5x5. |
 
 ## IMPORTANT: Red LED illumination
 
@@ -147,6 +149,37 @@ ArUco frames: 137 | track 7=H1-0042, track 12=H3-0242
 ```
 
 While a tagged bee is on screen this grows about 30 per second (one per frame).
+
+### Troubleshooting the decoder & tag-size discrepancy
+
+The worker can only read tags from the dictionary it is given, so
+**`aruco_dict` must match the printed tags**. The recorded samples have
+**4x4 tags**, so the default is `DICT_4X4_50`.
+
+Tag-size discrepancy with `ArUcoReader01.py`:
+
+- `ArUcoReader01.py` used a custom **5×5** `extendDictionary(10000, 5)` with
+  room for 10000 ids (the H1..H5 scheme).
+- The printed tags are **4×4**, which a 5×5 dictionary can **never** read.
+- A 4×4 dictionary is far smaller: `DICT_4X4_50` = 50 ids,
+  `DICT_4X4_1000` = 1000 ids. So the **10000-marker / H1..H5 scheme is not
+  usable with these tags**; the `H1..H5` label collapses to `H1-xxxx`.
+- We chose the 4×4 tags, hence the `DICT_4X4_50` default. If you need more
+  than 50 ids, switch to a larger 4×4 dictionary (e.g. `DICT_4X4_1000`) and
+  reprint the tags with it.
+
+To use the old custom 5×5 dictionary instead, set `"aruco_dict": "custom"`.
+
+If it decodes nothing, use the harness on the recorded crops:
+
+```bash
+cd v2
+go run ./aruco_debug -dict DICT_4X4_50   # matches the sample
+go run ./aruco_debug -dict custom        # old 10000x5 dictionary
+```
+
+It prints which crops decode and a summary, using the same `aruco` client as
+`main.go`. Generate the crops first with `go run . --debugImage`.
 
 ## Debugging crops (`--debugImage`)
 

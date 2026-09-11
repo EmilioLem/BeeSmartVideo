@@ -134,6 +134,7 @@ Hardcoded settings are fully commented in `menu/menu.go` and configured in `sett
 * `enable_telemetry`: `true`/`false` to publish live counts via MQTT.
 * `red_channel`: `true`/`false` to threshold on the red channel (see below). Default `true`.
 * `enable_aruco`: `true`/`false` to decode ArUco marker IDs with the Python worker (v2 only). Default `true`.
+* `aruco_dict`: dictionary the worker must match, e.g. `DICT_4X4_50`; empty = custom 10000x5 (v2 only).
 
 ### IMPORTANT: Red LED illumination (red channel)
 
@@ -155,10 +156,21 @@ detection pipeline thresholds on the **red channel** instead of luminance:
 When `enable_aruco` is on, `v2` starts `v2/ArUcoReader02.py` once as a
 long-lived worker. For each newly confirmed track it crops the bee from the
 full-resolution frame, sends it to the worker, and stores the decoded marker id
-on the track (`logic.Track.MarkerID` / `MarkerLabel`). The worker uses the same
-10000-marker 5x5 dictionary as `ArUcoReader01.py`. Disable with `--no-aruco` or
+on the track (`logic.Track.MarkerID` / `MarkerLabel`). The dictionary is set by
+`aruco_dict` (default `DICT_4X4_50`). Disable with `--no-aruco` or
 `"enable_aruco": false`. If Python/OpenCV is missing, v2 logs a warning and
 keeps running without marker decoding.
+
+#### Tag-size discrepancy (4x4 vs 5x5)
+
+The printed tags are **4×4** markers, so the default dictionary is
+`DICT_4X4_50`. `ArUcoReader01.py` instead used a custom **5×5**
+`extendDictionary(10000, 5)`, which can hold 10000 ids for the H1..H5 scheme.
+A 4×4 dictionary is much smaller (`DICT_4X4_50` = 50 ids, `DICT_4X4_1000` =
+1000), so **the 10000-marker / H1..H5 scheme cannot be used with 4×4 tags** and
+the `H1..H5` label collapses to `H1-xxxx`. Set `"aruco_dict": "custom"` to use
+the old 5×5 dictionary, or reprint the tags with a larger 4×4 dictionary if you
+need more than 50 unique ids.
 
 
 ### Export AI Dataset 

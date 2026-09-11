@@ -102,6 +102,7 @@ type v2Args struct {
 	sourceSet   bool
 	noArUco     bool   // disable the ArUco worker for this run
 	arucoScript string // path to ArUcoReader02.py
+	arucoDict   string // worker dictionary override (e.g. DICT_4X4_50)
 	python      string // python interpreter for the worker
 	debugImage  bool   // save the last N detected bee crops for troubleshooting
 }
@@ -136,6 +137,13 @@ func parseArgs(argv []string) v2Args {
 			}
 		case strings.HasPrefix(arg, "--aruco-script="):
 			args.arucoScript = strings.TrimPrefix(arg, "--aruco-script=")
+		case arg == "--aruco-dict":
+			if i+1 < len(argv) {
+				i++
+				args.arucoDict = argv[i]
+			}
+		case strings.HasPrefix(arg, "--aruco-dict="):
+			args.arucoDict = strings.TrimPrefix(arg, "--aruco-dict=")
 		case arg == "--python":
 			if i+1 < len(argv) {
 				i++
@@ -208,13 +216,26 @@ func startArUco(args v2Args, opts menu.Options) *aruco.Client {
 	if python == "" {
 		python = "python3"
 	}
+	dict := args.arucoDict
+	if dict == "" {
+		dict = opts.ArUcoDict
+	}
 
-	client, err := aruco.NewClient(python, script)
+	var workerArgs []string
+	if dict != "" {
+		workerArgs = append(workerArgs, "--dict", dict)
+	}
+
+	client, err := aruco.NewClient(python, script, workerArgs...)
 	if err != nil {
 		fmt.Printf("Warning: ArUco worker disabled: %v\n", err)
 		return nil
 	}
-	fmt.Printf("ArUco worker started: %s %s\n", python, script)
+	dictLabel := dict
+	if dictLabel == "" || strings.EqualFold(dictLabel, "custom") {
+		dictLabel = "custom:10000x5"
+	}
+	fmt.Printf("ArUco worker started: %s %s | dict=%s\n", python, script, dictLabel)
 	return client
 }
 

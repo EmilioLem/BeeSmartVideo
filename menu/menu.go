@@ -77,6 +77,13 @@ type Options struct {
 	// Only used by the v2 entry point. Default true.
 	EnableArUco bool `json:"enable_aruco"`
 
+	// ArUcoDict: dictionary the Python worker must use. Default "DICT_4X4_50",
+	// because the printed tags are 4x4 (see the tag-size note in v2/README.md).
+	// A 4x4 dictionary holds far fewer ids than the old 10000-marker 5x5 one,
+	// so the H1..H5 / 10000 scheme is not available with these tags. Set
+	// "custom" to use the old 5x5 extendDictionary(10000, 5) instead.
+	ArUcoDict string `json:"aruco_dict"`
+
 	// IsInteractive is set at runtime depending on whether TUI mode was requested.
 	IsInteractive bool `json:"-"`
 }
@@ -97,6 +104,7 @@ func DefaultOptions() Options {
 		EnableTelemetry: false,
 		RedChannel:      true,
 		EnableArUco:     true,
+		ArUcoDict:       "DICT_4X4_50",
 		IsInteractive:   false,
 	}
 }
@@ -286,6 +294,11 @@ func GetInteractiveOptions() Options {
 				Title("Enable ArUco Decoding").
 				Description("Read marker IDs from confirmed bee crops (v2 only; needs Python + OpenCV)").
 				Value(&opts.EnableArUco),
+
+			huh.NewInput().
+				Title("ArUco Dictionary").
+				Description("e.g. DICT_4X4_50 (default) or 'custom' for the 10000-marker 5x5").
+				Value(&opts.ArUcoDict),
 		),
 	)
 

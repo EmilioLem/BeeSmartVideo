@@ -6,15 +6,27 @@ This is the callable-tool version of the standalone Raspberry Pi daemon
 what remains is a fast, headless marker decoder that the Go video pipeline can
 drive. Detection settings match 01:
 
-    * custom dictionary: cv2.aruco.extendDictionary(10000, 5)
+    * dictionary: DICT_4X4_50 by default. The tags used in the recorded
+      samples are 4x4 markers. See the tag-size note below.
     * red channel (the hive LED is red)
     * minMarkerPerimeterRate = 0.010
     * CORNER_REFINE_SUBPIX
 
+TAG-SIZE NOTE
+-------------
+ArUcoReader01.py used cv2.aruco.extendDictionary(10000, 5), a custom 5x5
+dictionary with room for 10000 ids (the H1..H5 scheme). The tags in the
+recorded samples are standard 4x4 markers, which no 5x5 dictionary can read.
+A 4x4 dictionary is much smaller: DICT_4X4_50 has 50 ids, and even
+DICT_4X4_1000 only reaches 1000. So the 10000-marker / H1..H5 scheme cannot be
+used with 4x4 tags; the decoder defaults to DICT_4X4_50 to match the samples.
+Pass --dict custom (optionally with --custom-markers/--marker-bits) to use the
+old 5x5 dictionary instead.
+
 The custom dictionary is generated once and cached next to this script
 (aruco_dict_10000x5.npz), because extendDictionary() is O(n^2) and takes
-~2 minutes for 10000 markers. Delete the .npz (or pass --rebuild-dict) to
-regenerate it.
+~2 minutes for 10000 markers. It is only used with --dict custom. Delete the
+.npz (or pass --rebuild-dict) to regenerate it.
 
 Two ways to run
 ---------------
@@ -62,6 +74,7 @@ import cv2
 import numpy as np
 
 PROTOCOL_VERSION = 1
+DEFAULT_DICT = "DICT_4X4_50"  # 4x4 tags, matching the recorded samples
 DEFAULT_CUSTOM_MARKERS = 10000
 DEFAULT_MARKER_BITS = 5
 DEFAULT_CHANNEL = "red"
@@ -87,7 +100,7 @@ def obtener_nomenclatura(id_entero: int) -> str:
 
 
 def build_detector(args):
-    if args.dict:
+    if args.dict and args.dict.lower() != "custom":
         attr = args.dict if args.dict.startswith("DICT_") else f"DICT_{args.dict}"
         if not hasattr(cv2.aruco, attr):
             raise SystemExit(f"Unknown predefined dictionary: {attr}")
@@ -380,7 +393,12 @@ def parse_args(argv):
         "--benchmark", help="decode every image in a folder and print latency stats"
     )
     parser.add_argument(
-        "--dict", help="predefined dictionary name, e.g. DICT_4X4_50 (default: custom 10000x5)"
+        "--dict",
+        default=DEFAULT_DICT,
+        help=(
+            "predefined dictionary name, e.g. DICT_4X4_50 (default) or DICT_4X4_1000; "
+            "pass 'custom' for the 10000-marker 5x5 dictionary from ArUcoReader01.py"
+        ),
     )
     parser.add_argument("--custom-markers", type=int, default=DEFAULT_CUSTOM_MARKERS)
     parser.add_argument("--marker-bits", type=int, default=DEFAULT_MARKER_BITS)
