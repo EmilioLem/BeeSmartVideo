@@ -36,14 +36,14 @@ func main() {
 
 	method := opts.Method
 	thresholdMode := opts.ThresholdMode
-	
+
 	var inputPath string
 	if opts.Source == "live" {
 		inputPath = fmt.Sprintf("/dev/video%s", opts.DeviceIndex)
 	} else {
 		inputPath = opts.Source
 	}
-	
+
 	trackingMethod := opts.TrackingMethod
 	showIDs := opts.ShowIDs
 	smoothness := opts.Smoothness
@@ -77,11 +77,12 @@ func main() {
 	processor := logic.NewProcessor(width, height, bytesPP, bgDelta)
 	processor.ShowIDs = showIDs
 	processor.Smoothness = smoothness
+	processor.UseRedChannel = opts.RedChannel
 
 	var datagen *datasetgen.V1Generator
 	if opts.SaveData {
 		var errGen error
-		datagen, errGen = datasetgen.NewV1Generator("dataset")
+		datagen, errGen = datasetgen.NewV1Generator("dataset", opts.CropSize*3)
 		if errGen != nil {
 			fmt.Printf("Warning: failed to start dataset mapping: %v\n", errGen)
 			datagen = nil // disable save data on error
@@ -139,7 +140,7 @@ func main() {
 		if trackingMethod > 0 {
 			activeCount = processor.ApplyTracking(blobs, trackingMethod)
 			processor.OverlayTracks(processedFrame)
-			
+
 			if datagen != nil {
 				datagen.ProcessFrameTracks(processor.Tracks, processor.FullResFrame, inWidth, inHeight, processor.FrameCount)
 			}

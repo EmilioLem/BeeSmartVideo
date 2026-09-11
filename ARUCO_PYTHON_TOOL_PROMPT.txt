@@ -1,0 +1,112 @@
+================================================================================
+PROMPT - Turn the ArUco decoder into a headless batch worker for BeeSmartVideo
+================================================================================
+
+ROLE / GOAL
+Transform an existing Python + OpenCV ArUco decoder script into a small, robust,
+headless tool that a Go real-time video pipeline can call to read ArUco marker
+IDs from tiny bee crops.
+
+CONTEXT (the Go side)
+- "BeeSmartVideo" detects bees in a 426x240 processing frame, tracks them, and
+  can crop each bee from the original 1280x720 frame.
+- Each crop is a square JPEG centered on the bee centroid. The crop side is
+  configurable via "crop_size" (processing pixels, default 64, i.e. 192x192 at
+  full resolution, because the full-res image is 3x the processing frame). The
+  tool must accept a variable image size, not assume 192x192.
+- There can be a few dozen bees per frame and the pipeline targets 30 fps.
+- The Go side will send every detected bee crop to this tool and attach the
+  decoded marker ID to that bee's track.
+- Existing artifact: <path/to/your_aruco_script.py> (paste/attach it here).
+  It currently decodes ArUco markers with cv2.aruco and is meant to be run as a
+  normal script.
+
+HARD CONSTRAINT - DO NOT SPAWN A PROCESS PER IMAGE
+Launching a new Python interpreter per crop is not viable: interpreter startup
+plus "import cv2" costs roughly 0.3-1.0 s. A few dozen crops per frame would
+never run at 30 fps. The tool MUST be a long-lived process that is started once
+and reused. Please honor this in the design.
+
+--------------------------------------------------------------------------------
+DELIVERABLE 1 - aruco_worker.py (persistent batch worker)
+--------------------------------------------------------------------------------
+- Reads requests from stdin and writes responses to stdout as newline-delimited
+  JSON (one compact JSON object per line, UTF-8).
+- stdout is reserved for JSON ONLY. All logs/errors go to stderr.
+- Start once, load the detector once, then loop until stdin reaches EOF.
+- Request schema (v1):
+    {"v":1,"id":<int>,"images":[{"track_id":<int>,"jpeg_b64":"<base64 jpeg>"}, ...]}
+- Response schema (v1):
+    {"v":1,"id":<int>,"results":[
+       {"track_id":<int>,"found":<bool>,"marker_id":<int|null>,
+        "marker_ids":[<int>,...],"corners":[[x,y],...]|null,
+        "confidence":<float>,"error":<string|null>},
+       ...]}
+- A single crop may contain more than one marker. Return all of them (or pick the
+  best one and document the rule).
+- Base64 JPEG is acceptable for v1. Keep the door open for a raw-bytes binary
+  framing later (it avoids the 33% base64 overhead).
+- Validate the "v" version field and reject unknown versions with a JSON error.
+- Exit cleanly on EOF.
+
+--------------------------------------------------------------------------------
+DELIVERABLE 2 - one-shot CLI mode for testing
+--------------------------------------------------------------------------------
+- `python3 aruco_worker.py --image crop.jpg` prints the per-image result as JSON.
+- `python3 aruco_worker.py --benchmark DIR` runs over a folder and reports:
+  image count, mean / median / max ms per image, and p95.
+
+--------------------------------------------------------------------------------
+DELIVERABLE 3 - packaging and tests
+--------------------------------------------------------------------------------
+- requirements.txt with pinned versions for Python 3.11+.
+- A few sample crops and a tests/ folder with the expected marker IDs.
+- A short README (see "What to hand back").
+
+--------------------------------------------------------------------------------
+ARUCO REQUIREMENTS
+--------------------------------------------------------------------------------
+- Use cv2.aruco. Account for the OpenCV API change: in 4.7+ use ArucoDetector
+  with DetectorParameters; the older detectMarkers path is deprecated.
+- Make the dictionary configurable via --dict (e.g. DICT_4X4_50, DICT_5X5_100,
+  DICT_6X6_250, ...) with a sensible default. State the default.
+- Enable subpixel corner refinement and reject weak/false detections.
+- Upscale very small crops before detection (e.g. ensure the min side is
+  >= 100-150 px); document the scale used and its effect on marker size limits.
+- Return "found": false (never throw) when no marker is present.
+- Never open a GUI window: no cv2.imshow, no cv2.waitKey.
+- Per-image error handling: one corrupt image must not kill the worker. Put the
+  message in the "error" field and continue.
+- Optional: a thread pool / multiprocessing to decode several crops at once.
+
+--------------------------------------------------------------------------------
+PERFORMANCE GUIDANCE (measure it; do not guess)
+--------------------------------------------------------------------------------
+- Report per-crop latency in worker mode (pure decode, excluding base64).
+- Recommended usage pattern: decode a track's marker ONCE when the track is
+  first confirmed, cache track_id -> marker_id, and re-verify only every N
+  frames or when a track is re-acquired. This keeps typical frames at 0-3
+  decodes instead of dozens.
+- If the project requires continuous per-frame decoding of every bee, say so
+  explicitly, give the measured cost for the target crop size, and recommend
+  either a worker process pool or moving detection to the native Go/OpenCV side.
+
+--------------------------------------------------------------------------------
+WHAT TO HAND BACK
+--------------------------------------------------------------------------------
+- aruco_worker.py
+- requirements.txt
+- a short README containing:
+    * the exact stdin/stdout protocol (request + response examples),
+    * how to run the one-shot and benchmark modes,
+    * measured benchmark numbers on the sample crops,
+    * assumptions: marker size, dictionary, minimum crop resolution.
+
+--------------------------------------------------------------------------------
+INTEGRATION NOTES (for the Go side - do NOT implement this in Python)
+--------------------------------------------------------------------------------
+- Go will spawn the worker once and write/read JSON lines.
+- Decoded marker IDs will be stored on logic.Track and drawn next to track IDs.
+- The Go hook belongs right after tracking in the per-frame loop, and should
+  only request decodes for newly confirmed tracks (cache hits are free).
+================================================================================

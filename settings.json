@@ -7,6 +7,9 @@
   "show_ids": true,
   "smoothness": 0,
   "save_data": false,
+  "crop_size": 64,
   "loop_video": true,
-  "enable_telemetry": false
+  "enable_telemetry": false,
+  "red_channel": true,
+  "enable_aruco": true
 }

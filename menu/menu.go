@@ -56,11 +56,26 @@ type Options struct {
 	// SaveData: Export frame tracking data and cropped images to dataset/ folder.
 	SaveData bool `json:"save_data"`
 
+	// CropSize: Side of the square bee crop exported to dataset/, expressed in
+	// PROCESSING pixels (the 426x240 scale). The actual full-res crop is
+	// CropSize * 3, so the default of 64 equals a 192x192 px image.
+	CropSize int `json:"crop_size"`
+
 	// LoopVideo: Loop video playback continuously when using video file source.
 	LoopVideo bool `json:"loop_video"`
 
 	// EnableTelemetry: Publish live counting statistics over MQTT broker.
 	EnableTelemetry bool `json:"enable_telemetry"`
+
+	// RedChannel: Threshold on the red channel directly instead of luminance.
+	// The hive entrance is illuminated with RED LEDs only, so the red channel
+	// carries the bee signal. Default true; disable only for white light.
+	RedChannel bool `json:"red_channel"`
+
+	// EnableArUco: Decode ArUco markers on confirmed bee tracks through the
+	// Python worker (ArUcoReader02.py), attaching the marker id to each track.
+	// Only used by the v2 entry point. Default true.
+	EnableArUco bool `json:"enable_aruco"`
 
 	// IsInteractive is set at runtime depending on whether TUI mode was requested.
 	IsInteractive bool `json:"-"`
@@ -77,28 +92,35 @@ func DefaultOptions() Options {
 		ShowIDs:         true,
 		Smoothness:      0,
 		SaveData:        false,
+		CropSize:        64,
 		LoopVideo:       false,
 		EnableTelemetry: false,
+		RedChannel:      true,
+		EnableArUco:     true,
 		IsInteractive:   false,
 	}
 }
 
 // LoadSettings reads options from settings.json. If the file does not exist or is invalid, it returns DefaultOptions.
 func LoadSettings() Options {
-	defaultOpts := DefaultOptions()
+	opts := DefaultOptions()
 
 	file, err := os.Open(SettingsFile)
 	if err != nil {
-		return defaultOpts
+		return opts
 	}
 	defer file.Close()
 
-	var opts Options
+	// Decode over the defaults so fields missing from settings.json keep their
+	// default value (important for booleans that default to true, e.g. red_channel).
 	if err := json.NewDecoder(file).Decode(&opts); err != nil {
-		return defaultOpts
+		return DefaultOptions()
 	}
 	if opts.Source == "" {
-		opts.Source = defaultOpts.Source
+		opts.Source = DefaultOptions().Source
+	}
+	if opts.CropSize <= 0 {
+		opts.CropSize = DefaultOptions().CropSize
 	}
 	return opts
 }
@@ -164,6 +186,7 @@ func GetInteractiveOptions() Options {
 	var thresholdStr string = strconv.Itoa(opts.ThresholdMode)
 	var trackingStr string = strconv.Itoa(opts.TrackingMethod)
 	var smoothnessStr string = strconv.Itoa(opts.Smoothness)
+	var cropStr string = strconv.Itoa(opts.CropSize)
 
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -227,6 +250,18 @@ func GetInteractiveOptions() Options {
 				Description("Overlay track IDs on video").
 				Value(&opts.ShowIDs),
 
+			huh.NewSelect[string]().
+				Title("Bee Crop Size").
+				Description("Exported crop side, in processing pixels (full-res = x3)").
+				Options(
+					huh.NewOption("Small (32 proc px / 96 full-res)", "32"),
+					huh.NewOption("Medium (48 proc px / 144 full-res)", "48"),
+					huh.NewOption("Default (64 proc px / 192 full-res)", "64"),
+					huh.NewOption("Large (96 proc px / 288 full-res)", "96"),
+					huh.NewOption("X-Large (128 proc px / 384 full-res)", "128"),
+				).
+				Value(&cropStr),
+
 			huh.NewConfirm().
 				Title("Export AI Dataset").
 				Description("Save CSV and crop images to dataset/").
@@ -241,6 +276,16 @@ func GetInteractiveOptions() Options {
 				Title("Enable MQTT Telemetry").
 				Description("Publish live counting telemetry to an MQTT broker").
 				Value(&opts.EnableTelemetry),
+
+			huh.NewConfirm().
+				Title("Red-LED Mode (red channel)").
+				Description("Threshold on the red channel - hive entrance lit with red LEDs only").
+				Value(&opts.RedChannel),
+
+			huh.NewConfirm().
+				Title("Enable ArUco Decoding").
+				Description("Read marker IDs from confirmed bee crops (v2 only; needs Python + OpenCV)").
+				Value(&opts.EnableArUco),
 		),
 	)
 
@@ -254,6 +299,7 @@ func GetInteractiveOptions() Options {
 	opts.ThresholdMode, _ = strconv.Atoi(thresholdStr)
 	opts.TrackingMethod, _ = strconv.Atoi(trackingStr)
 	opts.Smoothness, _ = strconv.Atoi(smoothnessStr)
+	opts.CropSize, _ = strconv.Atoi(cropStr)
 
 	SaveSettings(opts)
 	return opts

@@ -1,0 +1,15 @@
+{
+  "source": "./videoSamples/ArUco-TaggedBeeSample.mp4",
+  "method": 1,
+  "threshold_mode": 1,
+  "device_index": "2",
+  "tracking_method": 3,
+  "show_ids": true,
+  "smoothness": 0,
+  "save_data": false,
+  "crop_size": 64,
+  "loop_video": true,
+  "enable_telemetry": false,
+  "red_channel": false,
+  "enable_aruco": true
+}

@@ -37,7 +37,19 @@ type Track struct {
 	Ratio         float64 // Morphological memory
 	// Add velocity for Kalman-style prediction
 	VX, VY float64
+	// ArUco identity decoded from the marker on the bee's back.
+	// MarkerID is MarkerUnknown (-1) until decoded, MarkerNone (-2) once the
+	// decode attempts are exhausted without a marker, or the marker id (>= 0).
+	MarkerID       int
+	MarkerLabel    string
+	MarkerAttempts int
 }
+
+// ArUco marker state sentinels for Track.MarkerID.
+const (
+	MarkerUnknown = -1 // not decoded yet
+	MarkerNone    = -2 // attempted, no marker found (stop retrying)
+)
 
 // Processor handles all video frame processing logic
 type Processor struct {
@@ -61,6 +73,11 @@ type Processor struct {
 	ShowIDs bool
 	// Smoothness level (0-4)
 	Smoothness int
+	// UseRedChannel thresholds on the red channel directly instead of luminance.
+	// The hive entrance is illuminated with RED LEDs only, so the red channel
+	// carries the bee signal while green/blue mostly carry noise. Enabled by
+	// default; set false only if the scene is lit with white light.
+	UseRedChannel bool
 	// Export options
 	ExportData  bool
 	DatasetPath string
@@ -79,6 +96,8 @@ func NewProcessor(width, height, bytesPP int, bgDelta float64) *Processor {
 		bgDelta:     bgDelta,
 		NextTrackID: 1,
 		ShowIDs:     true, // Default to true
+		// Hive entrance is lit with red LEDs only.
+		UseRedChannel: true,
 		// Pre-allocate buffers
 		visitedTemp: make([]bool, width*height),
 		binaryTemp:  make([]byte, width*height*bytesPP),
@@ -399,6 +418,11 @@ func (p *Processor) OverlayTracks(buf []byte) {
 			scale := 2
 			// Offset slightly to be above the centroid
 			p.DrawNumber(buf, t.ID, t.Centroid.X-10, t.Centroid.Y-25, scale, [3]byte{255, 255, 255})
+
+			// Decoded ArUco marker id, drawn in cyan right below the track id.
+			if t.MarkerID >= 0 {
+				p.DrawNumber(buf, t.MarkerID, t.Centroid.X-10, t.Centroid.Y-5, scale, [3]byte{0, 255, 255})
+			}
 		}
 	}
 }

@@ -12,9 +12,16 @@ func (p *Processor) BinaryGrayscaleInverseWithThreshold(frame []byte, threshold 
 		g := frame[i+1]
 		b := frame[i+2]
 
-		// Convert to grayscale using luminosity method
-		// Formula: 0.299*R + 0.587*G + 0.114*B
-		gray := uint8(float64(r)*0.299 + float64(g)*0.587 + float64(b)*0.114)
+		// Whichever channel feeds the threshold:
+		// The hive entrance is illuminated with RED LEDs only, so the default
+		// path uses the red channel directly. Luminance (0.299R + 0.587G +
+		// 0.114B) is only used when the scene is lit with white light.
+		var gray uint8
+		if p.UseRedChannel {
+			gray = r
+		} else {
+			gray = uint8(float64(r)*0.299 + float64(g)*0.587 + float64(b)*0.114)
+		}
 
 		// Convert to binary based on threshold
 		var binaryValue uint8

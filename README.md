@@ -132,6 +132,33 @@ Hardcoded settings are fully commented in `menu/menu.go` and configured in `sett
 * `save_data`: `true`/`false` to export dataset CSV & cropped bee images to `dataset/`.
 * `loop_video`: `true`/`false` to loop video file playback.
 * `enable_telemetry`: `true`/`false` to publish live counts via MQTT.
+* `red_channel`: `true`/`false` to threshold on the red channel (see below). Default `true`.
+* `enable_aruco`: `true`/`false` to decode ArUco marker IDs with the Python worker (v2 only). Default `true`.
+
+### IMPORTANT: Red LED illumination (red channel)
+
+The hive entrance is illuminated with **red LEDs only**. Therefore the whole
+detection pipeline thresholds on the **red channel** instead of luminance:
+
+* At the binary-threshold step (`logic/binaryGrayscaleInverseWithThreshold.go`),
+  `gray` is the red value directly, not `0.299R + 0.587G + 0.114B`.
+* Under red light, green and blue are almost pure sensor noise, so including
+  them only adds noise. Using red matches the illumination.
+* The ArUco worker (`v2/ArUcoReader02.py`) reads the same red channel, so the
+  whole pipeline is consistent from thresholding to marker decoding.
+* Set `"red_channel": false` in `settings.json` **only** when testing under
+  white light (e.g. the existing sample videos). Expect very different counts
+  otherwise.
+
+### ArUco marker identity (v2)
+
+When `enable_aruco` is on, `v2` starts `v2/ArUcoReader02.py` once as a
+long-lived worker. For each newly confirmed track it crops the bee from the
+full-resolution frame, sends it to the worker, and stores the decoded marker id
+on the track (`logic.Track.MarkerID` / `MarkerLabel`). The worker uses the same
+10000-marker 5x5 dictionary as `ArUcoReader01.py`. Disable with `--no-aruco` or
+`"enable_aruco": false`. If Python/OpenCV is missing, v2 logs a warning and
+keeps running without marker decoding.
 
 
 ### Export AI Dataset 
@@ -154,11 +181,11 @@ For every confirmed tracked bee, a row is added to `bee_data.csv` with the follo
 
 Individual bee images are extracted to the `dataset/images/` directory:
 
-* **Dimensions**: Fixed **192x192 pixel** square crops.
+* **Dimensions**: Configurable square crops via `crop_size` (default **64 processing px**, i.e. **192x192** at full resolution).
 * **Centering**: The crop is centered on the bee's centroid.
 * **High-Res Source**: Coordinates are automatically scaled by 3x to map from the internal processing resolution (240p) back to the **original 720p capture resolution**, ensuring high-quality training data.
 * **File Naming**: Saved as `{ID}_{Frame}.jpg` for easy mapping to the CSV.
-* **Edge Handling**: If a bee is near the border, the crop is padded with black pixels to maintain the 192x192 format.
+* **Edge Handling**: If a bee is near the border, the crop is padded with black pixels to keep the configured square format.
 
 ## Project Structure
 

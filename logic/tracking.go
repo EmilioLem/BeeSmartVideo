@@ -47,7 +47,7 @@ func (p *Processor) trackFeatureConsensus(blobs []Blob) {
 			if matchedBlobs[j] {
 				continue
 			}
-			
+
 			cost := p.calculateAffinities(track, blob)
 			if cost < bestCost {
 				bestCost = cost
@@ -291,25 +291,33 @@ func (p *Processor) calculateAffinities(track *Track, blob Blob) float64 {
 	predictedX := float64(track.Centroid.X) + track.VX
 	predictedY := float64(track.Centroid.Y) + track.VY
 	dist := math.Sqrt(math.Pow(predictedX-float64(blob.Centroid.X), 2) + math.Pow(predictedY-float64(blob.Centroid.Y), 2))
-	
+
 	distScore := dist / 60.0
-	if distScore > 1.0 { distScore = 1.0 }
+	if distScore > 1.0 {
+		distScore = 1.0
+	}
 
 	// Consistencia de Velocidad (30%): Similitud entre el vector (VX, VY) previo y el actual
-	vxDiff := float64(blob.Centroid.X - track.Centroid.X) - track.VX
-	vyDiff := float64(blob.Centroid.Y - track.Centroid.Y) - track.VY
+	vxDiff := float64(blob.Centroid.X-track.Centroid.X) - track.VX
+	vyDiff := float64(blob.Centroid.Y-track.Centroid.Y) - track.VY
 	speedDiff := math.Sqrt(vxDiff*vxDiff + vyDiff*vyDiff)
-	
+
 	speedScore := speedDiff / 40.0
-	if speedScore > 1.0 { speedScore = 1.0 }
+	if speedScore > 1.0 {
+		speedScore = 1.0
+	}
 
 	// Consistencia Morfológica (30%): Diferencia porcentual de Area y Solidity
-	areaDiff := math.Abs(float64(track.Area - blob.Area)) / math.Max(float64(track.Area), 1.0)
-	if areaDiff > 1.0 { areaDiff = 1.0 }
-	
+	areaDiff := math.Abs(float64(track.Area-blob.Area)) / math.Max(float64(track.Area), 1.0)
+	if areaDiff > 1.0 {
+		areaDiff = 1.0
+	}
+
 	solidityDiff := math.Abs(track.Solidity - blob.Solidity)
-	if solidityDiff > 1.0 { solidityDiff = 1.0 }
-	
+	if solidityDiff > 1.0 {
+		solidityDiff = 1.0
+	}
+
 	morphScore := (areaDiff + solidityDiff) / 2.0
 
 	return (distScore * 0.4) + (speedScore * 0.3) + (morphScore * 0.3)
@@ -361,6 +369,7 @@ func (p *Processor) createNewTracks(blobs []Blob, matched []bool) {
 				Ratio:         blob.Ratio,
 				LastSeenFrame: p.FrameCount,
 				History:       []Point{blob.Centroid},
+				MarkerID:      MarkerUnknown,
 			})
 			p.NextTrackID++
 		}

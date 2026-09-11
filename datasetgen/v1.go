@@ -14,10 +14,13 @@ import (
 type V1Generator struct {
 	basePath string
 	csvFile  *os.File
+	cropSize int // Full-resolution side of the square crop (processing size * 3)
 }
 
-// NewV1Generator initializes a new export instance and writes standard headers
-func NewV1Generator(basePath string) (*V1Generator, error) {
+// NewV1Generator initializes a new export instance and writes standard headers.
+// cropSize is the full-resolution side of the exported square crop; pass 0 to
+// fall back to the legacy 192 px.
+func NewV1Generator(basePath string, cropSize int) (*V1Generator, error) {
 	// Ensure directories exist
 	err := os.MkdirAll(filepath.Join(basePath, "images"), 0755)
 	if err != nil {
@@ -25,7 +28,7 @@ func NewV1Generator(basePath string) (*V1Generator, error) {
 	}
 
 	csvPath := filepath.Join(basePath, "bee_data.csv")
-	
+
 	// Open or create CSV file
 	fileExist := false
 	if _, err := os.Stat(csvPath); err == nil {
@@ -48,6 +51,7 @@ func NewV1Generator(basePath string) (*V1Generator, error) {
 	return &V1Generator{
 		basePath: basePath,
 		csvFile:  f,
+		cropSize: cropSize,
 	}, nil
 }
 
@@ -78,7 +82,10 @@ func (g *V1Generator) SaveCrop(track logic.Track, frame int, fullFrame []byte, i
 	}
 
 	bytesPP := 3 // RGB24
-	cropSize := 192
+	cropSize := g.cropSize
+	if cropSize <= 0 {
+		cropSize = 192 // legacy default
+	}
 	halfSize := cropSize / 2
 
 	// Scale coordinates back to original resolution (assumes 3x downsampling)
