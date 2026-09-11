@@ -269,6 +269,17 @@ func decodeTrackMarkers(client *aruco.Client, p *logic.Processor, fullFrame []by
 	}
 }
 
+// hasArucoMarker reports whether at least one active track carries a decoded
+// ArUco marker id.
+func hasArucoMarker(tracks []logic.Track) bool {
+	for i := range tracks {
+		if tracks[i].MarkerID >= 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // saveDebugCrops writes the crop of every confirmed track to debugImages/ for
 // troubleshooting. Names cycle through bee_000.jpg .. bee_099.jpg so the folder
 // always holds only the most recent debugImageRing crops (unordered by design).
@@ -303,9 +314,9 @@ func saveDebugCrops(p *logic.Processor, fullFrame []byte, cropSizeProcessing int
 // It uses ANSI cursor movement (like the '\r' it replaces), so both lines
 // update every refresh. The first call skips the cursor-up because no status
 // has been printed yet.
-func printStatus(first *bool, fps float64, up, down, active, blobs int, tracks []logic.Track) {
+func printStatus(first *bool, fps float64, up, down, active, blobs, arucoFrames int, tracks []logic.Track) {
 	line1 := fmt.Sprintf("FPS: %.1f | UP: %d | DOWN: %d | Active: %d | Blobs: %d", fps, up, down, active, blobs)
-	line2 := "ArUco IDs: " + formatMarkerIDs(tracks)
+	line2 := fmt.Sprintf("ArUco frames: %d | %s", arucoFrames, formatMarkerIDs(tracks))
 
 	if *first {
 		fmt.Printf("\r%s\x1b[K\n", line1)
@@ -430,6 +441,9 @@ func run(opts menu.Options, arucoClient *aruco.Client, debugImage bool) {
 	lastFPS := 0.0
 	firstStatus := true
 	debugIndex := 0
+	// Number of frames that contained at least one ArUco tag (grows ~30/s while
+	// a tagged bee is on screen).
+	arucoFrames := 0
 
 	for {
 		frame, err := input.ReadFrame()
@@ -484,6 +498,9 @@ func run(opts menu.Options, arucoClient *aruco.Client, debugImage bool) {
 			if debugImage {
 				saveDebugCrops(processor, frame, opts.CropSize, &debugIndex)
 			}
+			if hasArucoMarker(processor.Tracks) {
+				arucoFrames++
+			}
 			processor.OverlayTracks(processedFrame)
 
 			if datagen != nil {
@@ -505,7 +522,7 @@ func run(opts menu.Options, arucoClient *aruco.Client, debugImage bool) {
 			elapsed := time.Since(fpsStart)
 			lastFPS = 10.0 / elapsed.Seconds()
 			fpsStart = time.Now()
-			printStatus(&firstStatus, lastFPS, up, down, activeCount, len(blobs), processor.Tracks)
+			printStatus(&firstStatus, lastFPS, up, down, activeCount, len(blobs), arucoFrames, processor.Tracks)
 
 			// Calculate average path length, speed, and distance
 			avgPath := 0.0

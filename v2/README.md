@@ -139,6 +139,15 @@ track. See `ArUcoReader02.py` for the protocol and `../ARUCO_PYTHON_TOOL_PROMPT.
 for the design. If Python/OpenCV is unavailable, v2 warns and continues without
 marker decoding.
 
+The live status second line shows the cumulative number of frames that contained
+at least one ArUco tag, followed by the detected ids:
+
+```
+ArUco frames: 137 | track 7=H1-0042, track 12=H3-0242
+```
+
+While a tagged bee is on screen this grows about 30 per second (one per frame).
+
 ## Debugging crops (`--debugImage`)
 
 Run `go run . --debugImage` to dump the crop of every confirmed track to
